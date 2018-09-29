@@ -1,0 +1,41 @@
+[[package]]
+name = "dx12"
+version = "0.1.0"
+dependencies = [
+ "winapi 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wio 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "winapi"
+version = "0.3.6"
+dependencies = [
+ "winapi-i686-pc-windows-gnu 0.4.0",
+ "winapi-x86_64-pc-windows-gnu 0.4.0",
+]
+
+[[package]]
+name = "winapi"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+replace = "winapi 0.3.6"
+
+[[package]]
+name = "winapi-i686-pc-windows-gnu"
+version = "0.4.0"
+
+[[package]]
+name = "winapi-x86_64-pc-windows-gnu"
+version = "0.4.0"
+
+[[package]]
+name = "wio"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "winapi 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[metadata]
+"checksum winapi 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)" = "92c1eb33641e276cfa214a0522acad57be5c56b10cb348b3c5117db75f3ac4b0"
+"checksum wio 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f8a31e8a268d6941ffb7f8d7989fc93e4692bd3e75a27d400a72b4be1dadb213"
