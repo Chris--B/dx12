@@ -102,7 +102,7 @@ fn main() -> Result<(), u32> {
     let _device: ComPtr<ID3D12Device> = unsafe {
         let mut p_device: *mut ID3D12Device = ptr::null_mut();
         let hresult = D3D12CreateDevice(ptr::null_mut(),
-                                        D3D_FEATURE_LEVEL_12_0,
+                                        D3D_FEATURE_LEVEL_11_0,
                                         &ID3D12Device::uuidof(),
                                         &mut p_device as *mut _ as *mut _);
 
