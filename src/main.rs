@@ -59,7 +59,7 @@ fn get_arg_matches<'a>() -> clap::ArgMatches<'a> {
 fn main() -> Result<(), u32> {
     let matches = get_arg_matches();
 
-    if matches.is_present("debug-layer") {
+    if !matches.is_present("no-debug-layer") {
         unsafe {
             let mut p_debug: *mut ID3D12Debug = ptr::null_mut();
             let hr = D3D12GetDebugInterface(&ID3D12Debug::uuidof(),
