@@ -12,7 +12,9 @@ use std::{
 use wio::com::ComPtr;
 
 use winapi::{
+    um::unknwnbase::IUnknown,
     Interface,
+
     shared::winerror,
 
     // These functions include a namespace in their names, so we won't
@@ -39,7 +41,7 @@ fn get_arg_matches<'a>() -> clap::ArgMatches<'a> {
 
         // Adapter selection
         .arg(Arg::with_name("warp")
-                .help("Force using the warp adapter.")
+                .help("Force using the warp adapter")
                 .long("warp")
                 .short("w")
                 .required(false)
@@ -49,14 +51,26 @@ fn get_arg_matches<'a>() -> clap::ArgMatches<'a> {
         // Debug options
         .arg(Arg::with_name("debug-layer")
                 .display_order(3000)
-                .help("Enable the DX12 runtime debug layer.")
+                .help("Enable the DX12 runtime debug layer")
                 .long("debug-layer")
                 .overrides_with("no-debug-layer"))
         .arg(Arg::with_name("no-debug-layer")
                 .display_order(3001)
-                .help("Disable the DX12 runtime debug layer.")
+                .help("Disable the DX12 runtime debug layer")
                 .long("no-debug-layer")
                 .overrides_with("debug-layer"))
+
+        // I change this enough to just make it an option.
+        .arg(Arg::with_name("feature-level")
+                .help("Force using a specific feature level for CreateDevice
+    Supported feature levels:
+        11, 11.0, 11_0,
+            11.1, 11_1,
+        12, 12.0, 12_0,
+            12.1, 12_1
+   ")
+                .long("feature-level")
+                .default_value("11_0"))
 
         // End
         .get_matches()
@@ -70,7 +84,7 @@ fn main() -> Result<(), u32> {
             let mut p_debug: *mut ID3D12Debug = ptr::null_mut();
             let hr = D3D12GetDebugInterface(&ID3D12Debug::uuidof(),
                                             &mut p_debug as *mut _ as *mut _);
-            check_hresult!(hr, D3D12GetDebugInterface);
+            check_hresult!(hr, D3D12GetDebugInterface)?;
             let debug: ComPtr<ID3D12Debug> = ComPtr::from_raw(p_debug);
             debug.EnableDebugLayer();
         }
@@ -80,30 +94,46 @@ fn main() -> Result<(), u32> {
         let mut p_dxgi_factory: *mut IDXGIFactory4 = ptr::null_mut();
         let hr = CreateDXGIFactory(&IDXGIFactory4::uuidof(),
                                    &mut p_dxgi_factory as *mut _ as *mut _);
-        check_hresult!(hr, CreateDXGIFactory);
+        check_hresult!(hr, CreateDXGIFactory)?;
         ComPtr::from_raw(p_dxgi_factory)
     };
 
-    // This is only NOT NULL when using the warp adapter.
-    // We keep this NULL otherwise, to tell D3D12CreateDevice to use
-    // the default adapter.
-    let mut p_adapter: *mut IDXGIAdapter = ptr::null_mut();
-    if matches.is_present("warp") {
-        unsafe {
-            let hr = dxgi_factory.EnumWarpAdapter(&IDXGIAdapter::uuidof(),
-                                                  &mut p_adapter as *mut _ as *mut _);
-            check_hresult!(hr, IDXGIFactory4::EnumWarpAdapter);
-        }
+    let warp_adapter: ComPtr<IDXGIAdapter>;
+    unsafe {
+        let mut p_adapter: *mut IDXGIAdapter = ptr::null_mut();
+        let hr = dxgi_factory.EnumWarpAdapter(&IDXGIAdapter::uuidof(),
+                                              &mut p_adapter as *mut _ as *mut _);
+        check_hresult!(hr, IDXGIFactory4::EnumWarpAdapter)?;
+        warp_adapter = ComPtr::from_raw(p_adapter);
     }
-    let p_adapter = p_adapter;
+
+    let feature_level: u32 = match matches.value_of("feature-level").unwrap() {
+        "11" | "11.0" | "11_0" => D3D_FEATURE_LEVEL_11_0,
+               "11.1" | "11_1" => D3D_FEATURE_LEVEL_11_1,
+        "12" | "12.0" | "12_0" => D3D_FEATURE_LEVEL_12_0,
+               "12.1" | "12_1" => D3D_FEATURE_LEVEL_12_1,
+        text                   => {
+            panic!("Unrecognized feature level \"{}\"", text);
+        },
+    };
 
     let device: ComPtr<ID3D12Device> = unsafe {
+        // We'll either use the default adapter (NULL), or the software renderer
+        // if the user asked for that.
+        let p_adapter = if matches.is_present("warp") {
+            // TODO: Does CreateDevice take ownership of the adapter
+            //       we give it?
+            warp_adapter.as_raw()
+        } else {
+            ptr::null()
+        };
+
         let mut p_device: *mut ID3D12Device = ptr::null_mut();
-        let hr = D3D12CreateDevice(p_adapter as *mut _,
-                                   D3D_FEATURE_LEVEL_11_0,
+        let hr = D3D12CreateDevice(p_adapter as *mut IUnknown,
+                                   feature_level,
                                    &ID3D12Device::uuidof(),
                                    &mut p_device as *mut _ as *mut _);
-        check_hresult!(hr, D3D12CreateDevice);
+        check_hresult!(hr, D3D12CreateDevice)?;
         ComPtr::from_raw(p_device)
     };
 
@@ -114,7 +144,7 @@ fn main() -> Result<(), u32> {
                                     D3D12_FENCE_FLAG_NONE,
                                     &ID3D12Fence::uuidof(),
                                     &mut p_fence as *mut _ as *mut _);
-        check_hresult!(hr, D3D12Device::CreateFence);
+        check_hresult!(hr, D3D12Device::CreateFence)?;
         fence = ComPtr::from_raw(p_fence);
     }
 
@@ -129,12 +159,6 @@ cbv_srv_desc_size = {}",
                 rtv_desc_size,
                 dsv_desc_size,
                 cbv_srv_desc_size);
-    }
-
-    unsafe {
-        if let Some(adapter) = p_adapter.as_ref() {
-            adapter.Release();
-        }
     }
 
     Ok(())

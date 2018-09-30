@@ -4,7 +4,6 @@ version = "0.1.0"
 authors = ["Chris Butler <chrisbutler296@gmail.com>"]
 
 [dependencies]
-# This uses winapi too, and we need to make sure that it matches ours.
 wio = "^0.2"
 clap = "^2.32"
 termcolor = "^1.0"
