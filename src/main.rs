@@ -21,6 +21,7 @@ use winapi::{
     um::d3d12sdklayers::*,
     um::d3dcommon::*,
     shared::dxgi::*,
+    shared::dxgi1_4::*,
 };
 
 mod error;
@@ -75,12 +76,12 @@ fn main() -> Result<(), u32> {
         }
     }
 
-    let _dxgi_factory: ComPtr<IDXGIFactory1> = unsafe {
-        let mut p_dxgi_factory: *mut IDXGIFactory1 = ptr::null_mut();
-        let hr = CreateDXGIFactory1(&IDXGIFactory1::uuidof(),
-                                    &mut p_dxgi_factory as *mut _ as *mut _);
+    let dxgi_factory: ComPtr<IDXGIFactory4> = unsafe {
+        let mut p_dxgi_factory: *mut IDXGIFactory4 = ptr::null_mut();
+        let hr = CreateDXGIFactory(&IDXGIFactory4::uuidof(),
+                                   &mut p_dxgi_factory as *mut _ as *mut _);
         if !winerror::SUCCEEDED(hr) {
-            eprintln!("CreateDXGIFactory1: (0x{:x}) \"{}\"",
+            eprintln!("CreateDXGIFactory: (0x{:x}) \"{}\"",
                       hr,
                       error::win_error_msg(hr));
             return Err(1);
@@ -88,11 +89,27 @@ fn main() -> Result<(), u32> {
         ComPtr::from_raw(p_dxgi_factory)
     };
 
-    let _adapter: ComPtr<IDXGIAdapter>;
+    // This is only NOT NULL when using the warp adapter.
+    // We keep this NULL otherwise, to tell D3D12CreateDevice to use
+    // the default adapter.
+    let mut p_adapter: *mut IDXGIAdapter = ptr::null_mut();
+    if matches.is_present("warp") {
+        unsafe {
+            let hr = dxgi_factory.EnumWarpAdapter(&IDXGIAdapter::uuidof(),
+                                                  &mut p_adapter as *mut _ as *mut _);
+            if !winerror::SUCCEEDED(hr) {
+                eprintln!("IDXGIFactory4::EnumWarpAdapter: (0x{:x}) \"{}\"",
+                          hr,
+                          error::win_error_msg(hr));
+                return Err(1);
+            }
+        }
+    }
+    let p_adapter = p_adapter;
 
     let _device: ComPtr<ID3D12Device> = unsafe {
         let mut p_device: *mut ID3D12Device = ptr::null_mut();
-        let hr = D3D12CreateDevice(ptr::null_mut(),
+        let hr = D3D12CreateDevice(p_adapter as *mut _,
                                    D3D_FEATURE_LEVEL_11_0,
                                    &ID3D12Device::uuidof(),
                                    &mut p_device as *mut _ as *mut _);
@@ -105,6 +122,12 @@ fn main() -> Result<(), u32> {
 
         ComPtr::from_raw(p_device)
     };
+
+    unsafe {
+        if let Some(adapter) = p_adapter.as_ref() {
+            adapter.Release();
+        }
+    }
 
     Ok(())
 }
