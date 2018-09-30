@@ -46,6 +46,32 @@ pub fn dxgi_error_msg(hresult: winnt::HRESULT) -> Option<&'static str> {
     }
 }
 
+pub fn generic_error_msg(hresult: winnt::HRESULT) -> Option<&'static str> {
+    match hresult {
+        winerror::E_UNEXPECTED                  => Some("E_UNEXPECTED"),
+        winerror::E_NOTIMPL                     => Some("E_NOTIMPL"),
+        winerror::E_OUTOFMEMORY                 => Some("E_OUTOFMEMORY"),
+        winerror::E_INVALIDARG                  => Some("E_INVALIDARG"),
+        winerror::E_NOINTERFACE                 => Some("E_NOINTERFACE"),
+        winerror::E_POINTER                     => Some("E_POINTER"),
+        winerror::E_HANDLE                      => Some("E_HANDLE"),
+        winerror::E_ABORT                       => Some("E_ABORT"),
+        winerror::E_FAIL                        => Some("E_FAIL"),
+        winerror::E_ACCESSDENIED                => Some("E_ACCESSDENIED"),
+        winerror::E_PENDING                     => Some("E_PENDING"),
+        winerror::E_BOUNDS                      => Some("E_BOUNDS"),
+        winerror::E_CHANGED_STATE               => Some("E_CHANGED_STATE"),
+        winerror::E_ILLEGAL_STATE_CHANGE        => Some("E_ILLEGAL_STATE_CHANGE"),
+        winerror::E_ILLEGAL_METHOD_CALL         => Some("E_ILLEGAL_METHOD_CALL"),
+        winerror::E_STRING_NOT_NULL_TERMINATED  => Some("E_STRING_NOT_NULL_TERMINATED"),
+        winerror::E_ILLEGAL_DELEGATE_ASSIGNMENT => Some("E_ILLEGAL_DELEGATE_ASSIGNMENT"),
+        winerror::E_ASYNC_OPERATION_NOT_STARTED => Some("E_ASYNC_OPERATION_NOT_STARTED"),
+        winerror::E_APPLICATION_EXITING         => Some("E_APPLICATION_EXITING"),
+        winerror::E_APPLICATION_VIEW_EXITING    => Some("E_APPLICATION_VIEW_EXITING"),
+        _                                       => None,
+    }
+}
+
 pub fn win_error_msg(hresult: winnt::HRESULT) -> &'static str {
     use winapi::um::winbase::{
         FormatMessageA,
@@ -59,6 +85,9 @@ pub fn win_error_msg(hresult: winnt::HRESULT) -> &'static str {
     };
 
     if let Some(error_msg) = dxgi_error_msg(hresult) {
+        return error_msg;
+    }
+    if let Some(error_msg) = generic_error_msg(hresult) {
         return error_msg;
     }
 

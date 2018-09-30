@@ -13,20 +13,22 @@ use std::{
 use wio::com::ComPtr;
 
 use winapi::{
-    um::unknwnbase::IUnknown,
     Interface,
 
     shared::winerror,
+    um::unknwnbase::IUnknown,
 
     // These functions include a namespace in their names, so we won't
     // double-namespace them.
     // e.g. `d3d12::D3D12CreateDevice`
+    shared::dxgi1_3::DXGIGetDebugInterface1,
+    shared::dxgi1_4::*,
+    shared::dxgi::*,
+    shared::dxgiformat::*,
     um::d3d12::*,
     um::d3d12sdklayers::*,
     um::d3dcommon::*,
-    shared::dxgi::*,
-    shared::dxgi1_4::*,
-    shared::dxgiformat::*,
+    um::dxgidebug::*,
 };
 
 #[macro_use]
@@ -79,14 +81,15 @@ fn get_arg_matches<'a>() -> clap::ArgMatches<'a> {
 fn main() -> Result<(), u32> {
     let matches = get_arg_matches();
 
-    if !matches.is_present("no-debug-layer") {
-        unsafe {
-            let mut p_debug: *mut ID3D12Debug = ptr::null_mut();
-            let hr = D3D12GetDebugInterface(&ID3D12Debug::uuidof(),
-                                            &mut p_debug as *mut _ as *mut _);
-            check_hresult!(hr, D3D12GetDebugInterface)?;
-            let debug: ComPtr<ID3D12Debug> = ComPtr::from_raw(p_debug);
-            debug.EnableDebugLayer();
+    let d3d12_debug: ComPtr<ID3D12Debug>;
+    unsafe {
+        let mut p_debug: *mut ID3D12Debug = ptr::null_mut();
+        let hr = D3D12GetDebugInterface(&ID3D12Debug::uuidof(),
+                                        &mut p_debug as *mut _ as *mut _);
+        check_hresult!(hr, D3D12GetDebugInterface)?;
+        d3d12_debug = ComPtr::from_raw(p_debug);
+        if !matches.is_present("no-debug-layer") {
+            d3d12_debug.EnableDebugLayer();
         }
     }
 
@@ -137,15 +140,15 @@ fn main() -> Result<(), u32> {
         ComPtr::from_raw(p_device)
     };
 
-    let fence: ComPtr<ID3D12Fence>;
+    let _fence: ComPtr<ID3D12Fence>;
     unsafe {
         let mut p_fence: *mut ID3D12Fence = ptr::null_mut();
         let hr = device.CreateFence(0,
                                     D3D12_FENCE_FLAG_NONE,
                                     &ID3D12Fence::uuidof(),
                                     &mut p_fence as *mut _ as *mut _);
-        check_hresult!(hr, D3D12Device::CreateFence)?;
-        fence = ComPtr::from_raw(p_fence);
+        check_hresult!(hr, ID3D12Device::CreateFence)?;
+        _fence = ComPtr::from_raw(p_fence);
     }
 
     unsafe {
@@ -167,9 +170,50 @@ fn main() -> Result<(), u32> {
         let hr = device.CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS,
                                             &mut ms_quality as *mut _ as *mut _,
                                             mem::size_of_val(&ms_quality) as u32);
-        check_hresult!(hr, D3D12Device::CheckFeatureSupport)?;
+        check_hresult!(hr, ID3D12Device::CheckFeatureSupport)?;
     }
     println!("{:#?}", ms_quality);
+
+    //
+    // ---- Create command objects ------------
+    //
+    let _cmd_queue:    ComPtr<ID3D12CommandQueue>;
+    unsafe {
+        let queue_desc = D3D12_COMMAND_QUEUE_DESC {
+            Type: D3D12_COMMAND_LIST_TYPE_DIRECT,
+            Flags: D3D12_COMMAND_QUEUE_FLAG_NONE,
+            ..mem::zeroed()
+        };
+
+        let mut p_cmd_queue: *mut ID3D12CommandQueue = ptr::null_mut();
+        let hr = device.CreateCommandQueue(&queue_desc,
+                                           &ID3D12CommandQueue::uuidof(),
+                                           &mut p_cmd_queue as *mut _ as *mut _);
+        check_hresult!(hr, ID3D12Device::CreateCommandQueue)?;
+        // LEAK THIS:
+        // _cmd_queue = ComPtr::from_raw(p_cmd_queue);
+    }
+
+    let _cmd_alloc:    ComPtr<ID3D12CommandAllocator>;
+    let _gfx_cmd_list: ComPtr<ID3D12GraphicsCommandList>;
+
+    let dxgi_debug: ComPtr<IDXGIDebug>;
+    if !matches.is_present("no-debug-layer") {
+        unsafe {
+            let mut p_dxgi_debug: *mut IDXGIDebug = ptr::null_mut();
+            let hr = DXGIGetDebugInterface1(0, // flags, unused
+                                            &IDXGIDebug::uuidof(),
+                                            &mut p_dxgi_debug as *mut _ as *mut _);
+            // MS Docs:
+            //      The DXGIGetDebugInterface1 function returns E_NOINTERFACE on
+            //      systems without the Windows Software Development Kit (SDK)
+            //      installed, because it's a development-time aid.
+            // So we report but ignore an error here.
+            let _ = check_hresult!(hr, DXGIGetDebugInterface1);
+            dxgi_debug = ComPtr::from_raw(p_dxgi_debug);
+            dxgi_debug.ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
+        }
+    }
 
     Ok(())
 }

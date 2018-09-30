@@ -23,6 +23,7 @@ features = [
     "dxgi1_4",
     "dxgiformat",
     "dxgitype",
+    "dxgidebug",
     "handleapi",
     "minwindef",
     "synchapi",
