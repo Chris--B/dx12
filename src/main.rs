@@ -62,14 +62,12 @@ fn get_arg_matches<'a>() -> clap::ArgMatches<'a> {
 
         // I change this enough to just make it an option.
         .arg(Arg::with_name("feature-level")
-                .help("Force using a specific feature level for CreateDevice
-    Supported feature levels:
-        11, 11.0, 11_0,
-            11.1, 11_1,
-        12, 12.0, 12_0,
-            12.1, 12_1
-   ")
+                .help("Force using a specific feature level for CreateDevice")
                 .long("feature-level")
+                .possible_values(&["11", "11.0", "11_0",
+                                         "11.1", "11_1",
+                                   "12", "12.0", "12_0",
+                                         "12.1", "12_1"])
                 .default_value("11_0"))
 
         // End
@@ -113,7 +111,7 @@ fn main() -> Result<(), u32> {
         "12" | "12.0" | "12_0" => D3D_FEATURE_LEVEL_12_0,
                "12.1" | "12_1" => D3D_FEATURE_LEVEL_12_1,
         text                   => {
-            panic!("Unrecognized feature level \"{}\"", text);
+            panic!("Unrecognized feature level \"{}\": This is a bug.", text);
         },
     };
 
