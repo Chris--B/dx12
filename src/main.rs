@@ -97,7 +97,7 @@ fn main() -> Result<(), u32> {
     }
     let p_adapter = p_adapter;
 
-    let _device: ComPtr<ID3D12Device> = unsafe {
+    let device: ComPtr<ID3D12Device> = unsafe {
         let mut p_device: *mut ID3D12Device = ptr::null_mut();
         let hr = D3D12CreateDevice(p_adapter as *mut _,
                                    D3D_FEATURE_LEVEL_11_0,
@@ -106,6 +106,30 @@ fn main() -> Result<(), u32> {
         check_hresult!(hr, D3D12CreateDevice);
         ComPtr::from_raw(p_device)
     };
+
+    let fence: ComPtr<ID3D12Fence>;
+    unsafe {
+        let mut p_fence: *mut ID3D12Fence = ptr::null_mut();
+        let hr = device.CreateFence(0,
+                                    D3D12_FENCE_FLAG_NONE,
+                                    &ID3D12Fence::uuidof(),
+                                    &mut p_fence as *mut _ as *mut _);
+        check_hresult!(hr, D3D12Device::CreateFence);
+        fence = ComPtr::from_raw(p_fence);
+    }
+
+    unsafe {
+        let rtv_desc_size = device.GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+        let dsv_desc_size = device.GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+        let cbv_srv_desc_size = device.GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        println!("
+rtv_desc_size = {}
+dsv_desc_size = {}
+cbv_srv_desc_size = {}",
+                rtv_desc_size,
+                dsv_desc_size,
+                cbv_srv_desc_size);
+    }
 
     unsafe {
         if let Some(adapter) = p_adapter.as_ref() {
