@@ -48,10 +48,12 @@ fn get_arg_matches<'a>() -> clap::ArgMatches<'a> {
 
         // Debug options
         .arg(Arg::with_name("debug-layer")
+                .display_order(3000)
                 .help("Enable the DX12 runtime debug layer.")
                 .long("debug-layer")
                 .overrides_with("no-debug-layer"))
         .arg(Arg::with_name("no-debug-layer")
+                .display_order(3001)
                 .help("Disable the DX12 runtime debug layer.")
                 .long("no-debug-layer")
                 .overrides_with("debug-layer"))
