@@ -6,6 +6,7 @@ extern crate winapi;
 extern crate wio;
 
 use std::{
+    mem,
     ptr,
 };
 
@@ -25,6 +26,7 @@ use winapi::{
     um::d3dcommon::*,
     shared::dxgi::*,
     shared::dxgi1_4::*,
+    shared::dxgiformat::*,
 };
 
 #[macro_use]
@@ -150,14 +152,24 @@ fn main() -> Result<(), u32> {
         let rtv_desc_size = device.GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
         let dsv_desc_size = device.GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
         let cbv_srv_desc_size = device.GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-        println!("
-rtv_desc_size = {}
-dsv_desc_size = {}
-cbv_srv_desc_size = {}",
-                rtv_desc_size,
-                dsv_desc_size,
-                cbv_srv_desc_size);
+        println!("rtv_desc_size     = {}", rtv_desc_size);
+        println!("dsv_desc_size     = {}", dsv_desc_size);
+        println!("cbv_srv_desc_size = {}", cbv_srv_desc_size);
     }
+
+    let mut ms_quality = D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS {
+        Format:             DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+        SampleCount:        4,
+        Flags:              D3D12_MULTISAMPLE_QUALITY_LEVELS_FLAG_NONE,
+        NumQualityLevels:   0,
+    };
+    unsafe {
+        let hr = device.CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS,
+                                            &mut ms_quality as *mut _ as *mut _,
+                                            mem::size_of_val(&ms_quality) as u32);
+        check_hresult!(hr, D3D12Device::CheckFeatureSupport)?;
+    }
+    println!("{:#?}", ms_quality);
 
     Ok(())
 }
