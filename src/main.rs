@@ -1,6 +1,7 @@
 #![feature(termination_trait_lib)]
 
 extern crate clap;
+extern crate termcolor;
 extern crate winapi;
 extern crate wio;
 
@@ -24,6 +25,8 @@ use winapi::{
     shared::dxgi1_4::*,
 };
 
+#[macro_use]
+mod macros;
 mod error;
 
 fn get_arg_matches<'a>() -> clap::ArgMatches<'a> {
@@ -65,12 +68,7 @@ fn main() -> Result<(), u32> {
             let mut p_debug: *mut ID3D12Debug = ptr::null_mut();
             let hr = D3D12GetDebugInterface(&ID3D12Debug::uuidof(),
                                             &mut p_debug as *mut _ as *mut _);
-            if !winerror::SUCCEEDED(hr) {
-                eprintln!("D3D12GetDebugInterface: (0x{:x}) \"{}\"",
-                          hr,
-                          error::win_error_msg(hr));
-                return Err(1);
-            }
+            check_hresult!(hr, D3D12GetDebugInterface);
             let debug: ComPtr<ID3D12Debug> = ComPtr::from_raw(p_debug);
             debug.EnableDebugLayer();
         }
@@ -80,12 +78,7 @@ fn main() -> Result<(), u32> {
         let mut p_dxgi_factory: *mut IDXGIFactory4 = ptr::null_mut();
         let hr = CreateDXGIFactory(&IDXGIFactory4::uuidof(),
                                    &mut p_dxgi_factory as *mut _ as *mut _);
-        if !winerror::SUCCEEDED(hr) {
-            eprintln!("CreateDXGIFactory: (0x{:x}) \"{}\"",
-                      hr,
-                      error::win_error_msg(hr));
-            return Err(1);
-        }
+        check_hresult!(hr, CreateDXGIFactory);
         ComPtr::from_raw(p_dxgi_factory)
     };
 
@@ -97,12 +90,7 @@ fn main() -> Result<(), u32> {
         unsafe {
             let hr = dxgi_factory.EnumWarpAdapter(&IDXGIAdapter::uuidof(),
                                                   &mut p_adapter as *mut _ as *mut _);
-            if !winerror::SUCCEEDED(hr) {
-                eprintln!("IDXGIFactory4::EnumWarpAdapter: (0x{:x}) \"{}\"",
-                          hr,
-                          error::win_error_msg(hr));
-                return Err(1);
-            }
+            check_hresult!(hr, IDXGIFactory4::EnumWarpAdapter);
         }
     }
     let p_adapter = p_adapter;
@@ -113,13 +101,7 @@ fn main() -> Result<(), u32> {
                                    D3D_FEATURE_LEVEL_11_0,
                                    &ID3D12Device::uuidof(),
                                    &mut p_device as *mut _ as *mut _);
-        if !winerror::SUCCEEDED(hr) {
-            eprintln!("D3D12CreateDevice: (0x{:x}) \"{}\"",
-                      hr,
-                      error::win_error_msg(hr));
-            return Err(1);
-        }
-
+        check_hresult!(hr, D3D12CreateDevice);
         ComPtr::from_raw(p_device)
     };
 

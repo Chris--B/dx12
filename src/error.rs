@@ -9,6 +9,8 @@ use winapi::{
     um::winnt,
 };
 
+use termcolor;
+
 fn hresult_code(hresult: winnt::HRESULT) -> u32 {
     // https://docs.microsoft.com/en-us/windows/desktop/api/winerror/nf-winerror-hresult_code
     (hresult as u32) & 0xFFFF
@@ -83,4 +85,39 @@ pub fn win_error_msg(hresult: winnt::HRESULT) -> &'static str {
             // the rest of the buffer.
             .trim_matches(|c| { c == '\n' || c == '\r' || c == '\0' })
     }
+}
+
+pub struct ColorSpecCatalog {
+    pub file:        termcolor::ColorSpec,
+    pub line:        termcolor::ColorSpec,
+    pub func:        termcolor::ColorSpec,
+    pub windows_msg: termcolor::ColorSpec,
+    pub hresult:     termcolor::ColorSpec,
+}
+
+pub fn get_color_spec_catalog() -> ColorSpecCatalog {
+    use termcolor::{
+        Color,
+        ColorSpec,
+    };
+
+    // TODO: It would be neat if this were loaded from a config file.
+    let mut specs = ColorSpecCatalog {
+        file:        ColorSpec::new(),
+        line:        ColorSpec::new(),
+        func:        ColorSpec::new(),
+        windows_msg: ColorSpec::new(),
+        hresult:     ColorSpec::new(),
+    };
+
+    specs.file.set_fg(None);
+    specs.line.set_fg(None);
+    specs.func.set_fg(None);
+
+    specs.windows_msg.set_fg(Some(Color::Red));
+    specs.windows_msg.set_intense(true);
+
+    specs.hresult.set_fg(Some(Color::Red));
+
+    specs
 }
