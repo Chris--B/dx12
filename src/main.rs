@@ -81,16 +81,16 @@ fn get_arg_matches<'a>() -> clap::ArgMatches<'a> {
 fn main() -> Result<(), u32> {
     let matches = get_arg_matches();
 
-    let d3d12_debug: ComPtr<ID3D12Debug>;
-    unsafe {
+    let d3d12_debug: ComPtr<ID3D12Debug> = unsafe {
         let mut p_debug: *mut ID3D12Debug = ptr::null_mut();
         let hr = D3D12GetDebugInterface(&ID3D12Debug::uuidof(),
                                         &mut p_debug as *mut _ as *mut _);
         check_hresult!(hr, D3D12GetDebugInterface)?;
-        d3d12_debug = ComPtr::from_raw(p_debug);
-        if !matches.is_present("no-debug-layer") {
-            d3d12_debug.EnableDebugLayer();
-        }
+        ComPtr::from_raw(p_debug)
+    };
+
+    if !matches.is_present("no-debug-layer") {
+        unsafe { d3d12_debug.EnableDebugLayer(); }
     }
 
     let dxgi_factory: ComPtr<IDXGIFactory4> = unsafe {
@@ -101,14 +101,13 @@ fn main() -> Result<(), u32> {
         ComPtr::from_raw(p_dxgi_factory)
     };
 
-    let warp_adapter: ComPtr<IDXGIAdapter>;
-    unsafe {
+    let warp_adapter: ComPtr<IDXGIAdapter> = unsafe {
         let mut p_adapter: *mut IDXGIAdapter = ptr::null_mut();
         let hr = dxgi_factory.EnumWarpAdapter(&IDXGIAdapter::uuidof(),
                                               &mut p_adapter as *mut _ as *mut _);
         check_hresult!(hr, IDXGIFactory4::EnumWarpAdapter)?;
-        warp_adapter = ComPtr::from_raw(p_adapter);
-    }
+        ComPtr::from_raw(p_adapter)
+    };
 
     let feature_level: u32 = match matches.value_of("feature-level").unwrap() {
         "11" | "11.0" | "11_0" => D3D_FEATURE_LEVEL_11_0,
@@ -140,16 +139,15 @@ fn main() -> Result<(), u32> {
         ComPtr::from_raw(p_device)
     };
 
-    let _fence: ComPtr<ID3D12Fence>;
-    unsafe {
+    let _fence: ComPtr<ID3D12Fence> = unsafe {
         let mut p_fence: *mut ID3D12Fence = ptr::null_mut();
         let hr = device.CreateFence(0,
                                     D3D12_FENCE_FLAG_NONE,
                                     &ID3D12Fence::uuidof(),
                                     &mut p_fence as *mut _ as *mut _);
         check_hresult!(hr, ID3D12Device::CreateFence)?;
-        _fence = ComPtr::from_raw(p_fence);
-    }
+        ComPtr::from_raw(p_fence)
+    };
 
     unsafe {
         let rtv_desc_size = device.GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
@@ -171,14 +169,13 @@ fn main() -> Result<(), u32> {
                                             &mut ms_quality as *mut _ as *mut _,
                                             mem::size_of_val(&ms_quality) as u32);
         check_hresult!(hr, ID3D12Device::CheckFeatureSupport)?;
-    }
+    };
     println!("{:#?}", ms_quality);
 
     //
     // ---- Create command objects ------------
     //
-    let _cmd_queue:    ComPtr<ID3D12CommandQueue>;
-    unsafe {
+    let _cmd_queue: ComPtr<ID3D12CommandQueue> = unsafe {
         let queue_desc = D3D12_COMMAND_QUEUE_DESC {
             Type: D3D12_COMMAND_LIST_TYPE_DIRECT,
             Flags: D3D12_COMMAND_QUEUE_FLAG_NONE,
@@ -190,12 +187,29 @@ fn main() -> Result<(), u32> {
                                            &ID3D12CommandQueue::uuidof(),
                                            &mut p_cmd_queue as *mut _ as *mut _);
         check_hresult!(hr, ID3D12Device::CreateCommandQueue)?;
-        // LEAK THIS:
-        // _cmd_queue = ComPtr::from_raw(p_cmd_queue);
-    }
+        ComPtr::from_raw(p_cmd_queue)
+    };
 
-    let _cmd_alloc:    ComPtr<ID3D12CommandAllocator>;
-    let _gfx_cmd_list: ComPtr<ID3D12GraphicsCommandList>;
+    let cmd_alloc: ComPtr<ID3D12CommandAllocator> = unsafe {
+        let mut p_cmd_alloc: *mut ID3D12CommandAllocator = ptr::null_mut();
+        let hr = device.CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
+                                               &ID3D12CommandAllocator::uuidof(),
+                                               &mut p_cmd_alloc as *mut _ as *mut _);
+        check_hresult!(hr, ID3D12Device::CreateCommandAllocator)?;
+        ComPtr::from_raw(p_cmd_alloc)
+    };
+
+    let _gfx_cmd_list: ComPtr<ID3D12GraphicsCommandList> = unsafe {
+        let mut p_gfx_cmd_list: *mut ID3D12GraphicsCommandList = ptr::null_mut();
+        let hr = device.CreateCommandList(0, // node mask
+                                          D3D12_COMMAND_LIST_TYPE_DIRECT,
+                                          cmd_alloc.as_raw(),
+                                          ptr::null_mut(), // Initial PSO
+                                          &ID3D12GraphicsCommandList::uuidof(),
+                                          &mut p_gfx_cmd_list as *mut _ as *mut _);
+        check_hresult!(hr, ID3D12Device::CreateCommandList)?;
+        ComPtr::from_raw(p_gfx_cmd_list)
+    };
 
     let dxgi_debug: ComPtr<IDXGIDebug>;
     if !matches.is_present("no-debug-layer") {
