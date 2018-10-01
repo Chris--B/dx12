@@ -25,6 +25,7 @@ use winapi::{
     shared::dxgi1_4::*,
     shared::dxgi::*,
     shared::dxgiformat::*,
+    shared::dxgitype::*,
     um::d3d12::*,
     um::d3d12sdklayers::*,
     um::d3dcommon::*,
@@ -175,7 +176,7 @@ fn main() -> Result<(), u32> {
     //
     // ---- Create command objects ------------
     //
-    let _cmd_queue: ComPtr<ID3D12CommandQueue> = unsafe {
+    let cmd_queue: ComPtr<ID3D12CommandQueue> = unsafe {
         let queue_desc = D3D12_COMMAND_QUEUE_DESC {
             Type: D3D12_COMMAND_LIST_TYPE_DIRECT,
             Flags: D3D12_COMMAND_QUEUE_FLAG_NONE,
@@ -228,6 +229,38 @@ fn main() -> Result<(), u32> {
             dxgi_debug.ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
         }
     }
+
+    let mut swapchain_desc = DXGI_SWAP_CHAIN_DESC {
+        BufferDesc: DXGI_MODE_DESC {
+            Width:  1024,
+            Height: 1024,
+            RefreshRate: DXGI_RATIONAL { Numerator: 60, Denominator: 1},
+            Format: DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+            ScanlineOrdering: DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED,
+            Scaling: DXGI_MODE_SCALING_UNSPECIFIED,
+        },
+        SampleDesc: DXGI_SAMPLE_DESC {
+            Count: 4,
+            Quality: 16,
+        },
+        BufferUsage: DXGI_USAGE_RENDER_TARGET_OUTPUT,
+        BufferCount: 3, // swapchainBufferCount
+        OutputWindow: ptr::null_mut(), // hWnd
+        Windowed: 1,
+        SwapEffect: DXGI_SWAP_EFFECT_FLIP_DISCARD,
+        Flags: DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH,
+        // ..unsafe { mem::zeroed() }
+    };
+    println!("{:#?}", swapchain_desc);
+
+    let _swapchain: ComPtr<IDXGISwapChain> = unsafe {
+        let mut p_swapchain: *mut IDXGISwapChain = ptr::null_mut();
+        let hr = dxgi_factory.CreateSwapChain(cmd_queue.as_raw() as *mut _,
+                                              &mut swapchain_desc,
+                                              &mut p_swapchain);
+        check_hresult!(hr, IDXGIFactory::CreateSwapChain)?;
+        ComPtr::from_raw(p_swapchain)
+    };
 
     Ok(())
 }
