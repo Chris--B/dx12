@@ -55,7 +55,7 @@ macro_rules! check_hresult {
 
                 // The upper WORD of this hresult identifies the category of
                 // the error's source.
-                Err(hresult as u32 >> 16)
+                Err(hresult as u32)
             } else {
                 Ok(())
             }

@@ -6,6 +6,7 @@ extern crate winapi;
 extern crate wio;
 
 use std::{
+    fmt,
     mem,
     ptr,
 };
@@ -35,6 +36,18 @@ use winapi::{
 #[macro_use]
 mod macros;
 mod error;
+
+struct U32HexWrapper(u32);
+
+impl From<u32> for U32HexWrapper {
+    fn from(num: u32) -> U32HexWrapper { U32HexWrapper(num) }
+}
+
+impl fmt::Debug for U32HexWrapper {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "0x{:x}", self.0)
+    }
+}
 
 fn get_arg_matches<'a>() -> clap::ArgMatches<'a> {
     use clap::{App, Arg};
@@ -79,7 +92,7 @@ fn get_arg_matches<'a>() -> clap::ArgMatches<'a> {
         .get_matches()
 }
 
-fn main() -> Result<(), u32> {
+fn main() -> Result<(), U32HexWrapper> {
     let matches = get_arg_matches();
 
     let d3d12_debug: ComPtr<ID3D12Debug> = unsafe {
@@ -157,6 +170,7 @@ fn main() -> Result<(), u32> {
         println!("rtv_desc_size     = {}", rtv_desc_size);
         println!("dsv_desc_size     = {}", dsv_desc_size);
         println!("cbv_srv_desc_size = {}", cbv_srv_desc_size);
+        println!("");
     }
 
     let mut ms_quality = D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS {
@@ -171,7 +185,7 @@ fn main() -> Result<(), u32> {
                                             mem::size_of_val(&ms_quality) as u32);
         check_hresult!(hr, ID3D12Device::CheckFeatureSupport)?;
     };
-    println!("{:#?}", ms_quality);
+    println!("{:#?}\n", ms_quality);
 
     //
     // ---- Create command objects ------------
@@ -251,7 +265,7 @@ fn main() -> Result<(), u32> {
         Flags: DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH,
         // ..unsafe { mem::zeroed() }
     };
-    println!("{:#?}", swapchain_desc);
+    println!("{:#?}\n", swapchain_desc);
 
     let _swapchain: ComPtr<IDXGISwapChain> = unsafe {
         let mut p_swapchain: *mut IDXGISwapChain = ptr::null_mut();
