@@ -32,7 +32,7 @@ features = [
     "windef",
     "winerror",
     "winnt",
-    "winuser"
+    "winuser",
 ]
 
 [replace]
