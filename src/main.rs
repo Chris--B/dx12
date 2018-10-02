@@ -15,11 +15,12 @@ use wio::com::ComPtr;
 
 use winapi::{
     Interface,
+    um::errhandlingapi::GetLastError,
+    um::unknwnbase::IUnknown,
 
     shared::windef,
     shared::winerror,
-    um::errhandlingapi::GetLastError,
-    um::unknwnbase::IUnknown,
+    um::winuser,
 
     // These functions include a namespace in their names, so we won't
     // double-namespace them.
@@ -52,6 +53,29 @@ impl fmt::Debug for U32HexWrapper {
     }
 }
 
+// WndProc in traditional Win32 examples
+extern "system"
+fn win32_event_handler(h_wnd:   windef::HWND,
+                       msg:     u32,
+                       w_param: usize,
+                       l_param: isize) -> isize {
+    use winuser::*;
+    let param = w_param as i32;
+    unsafe {
+        match msg {
+            WM_KEYDOWN if param == VK_ESCAPE   => { DestroyWindow(h_wnd); },
+            WM_DESTROY                         => { PostQuitMessage(0); },
+            WM_LBUTTONDOWN => {
+                println!("Click? {:x}, {:x}", w_param, l_param);
+            },
+            _ => {
+                return DefWindowProcA(h_wnd, msg, w_param, l_param);
+            },
+        };
+        // All of the branches return 0 if they handle the message.
+        0
+    }
+}
 
 fn init_main_window() -> Result<windef::HWND, u32> {
     use winapi::shared::{
@@ -63,16 +87,6 @@ fn init_main_window() -> Result<windef::HWND, u32> {
         winuser::*,
     };
     use winapi::um::libloaderapi::*;
-
-    /// WndProc in traditional Win32 examples
-    extern "system"
-    fn win32_event_handler(h_wnd:   windef::HWND,
-                           msg:     u32,
-                           w_param: usize,
-                           l_param: isize) -> isize
-    {
-        unsafe { DefWindowProcA(h_wnd, msg, w_param, l_param) }
-    }
 
     unsafe {
         let h_instance = GetModuleHandleA(ptr::null_mut()) as HINSTANCE;
@@ -88,7 +102,6 @@ fn init_main_window() -> Result<windef::HWND, u32> {
             hbrBackground: GetStockObject(WHITE_BRUSH as i32) as HBRUSH,
             lpszMenuName:  ptr::null_mut(),
             lpszClassName: b"BasicWndClass".as_ptr() as *const i8,
-            .. mem::zeroed()
         };
 
         if RegisterClassA(&wc) != 0 {
@@ -132,7 +145,7 @@ fn main() -> Result<(), U32HexWrapper> {
         unsafe { d3d12_debug.EnableDebugLayer(); }
     }
 
-    let _h_wnd = init_main_window()?;
+    let h_wnd = init_main_window()?;
 
     let dxgi_factory: ComPtr<IDXGIFactory4> = unsafe {
         let mut p_dxgi_factory: *mut IDXGIFactory4 = ptr::null_mut();
@@ -274,21 +287,36 @@ fn main() -> Result<(), U32HexWrapper> {
         },
         BufferUsage: DXGI_USAGE_RENDER_TARGET_OUTPUT,
         BufferCount: 3, // swapchainBufferCount
-        OutputWindow: ptr::null_mut(), // hWnd
+        OutputWindow: h_wnd,
         Windowed: 1,
         SwapEffect: DXGI_SWAP_EFFECT_FLIP_DISCARD,
         Flags: DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH,
     };
     println!("{:#?}\n", swapchain_desc);
 
-    let _swapchain: ComPtr<IDXGISwapChain> = unsafe {
-        let mut p_swapchain: *mut IDXGISwapChain = ptr::null_mut();
-        let hr = dxgi_factory.CreateSwapChain(cmd_queue.as_raw() as *mut _,
-                                              &mut swapchain_desc,
-                                              &mut p_swapchain);
-        check_hresult!(hr, IDXGIFactory::CreateSwapChain)?;
-        ComPtr::from_raw(p_swapchain)
-    };
+    // let _swapchain: ComPtr<IDXGISwapChain> = unsafe {
+    //     let mut p_swapchain: *mut IDXGISwapChain = ptr::null_mut();
+    //     let hr = dxgi_factory.CreateSwapChain(cmd_queue.as_raw() as *mut _,
+    //                                           &mut swapchain_desc,
+    //                                           &mut p_swapchain);
+    //     check_hresult!(hr, IDXGIFactory::CreateSwapChain)?;
+    //     ComPtr::from_raw(p_swapchain)
+    // };
+
+    loop {
+        unsafe {
+            let mut msg = mem::zeroed();
+            let ret = winuser::GetMessageA(&mut msg,
+                                           ptr::null_mut(), // hWnd
+                                           0,               // wMsgFilterMin
+                                           0);              // wMsgFilterMax
+            if ret == -1 {
+                break;
+            }
+            winuser::TranslateMessage(&msg);
+            winuser::DispatchMessageA(&msg);
+        }
+    }
 
     Ok(())
 }
