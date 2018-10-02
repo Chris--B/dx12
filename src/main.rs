@@ -15,10 +15,8 @@ use wio::com::ComPtr;
 
 use winapi::{
     Interface,
-    um::errhandlingapi::GetLastError,
     um::unknwnbase::IUnknown,
 
-    shared::windef,
     shared::winerror,
     um::winuser,
 
@@ -40,6 +38,7 @@ use winapi::{
 mod macros;
 mod error;
 mod config;
+mod win32_window;
 
 struct U32HexWrapper(u32);
 
@@ -50,83 +49,6 @@ impl From<u32> for U32HexWrapper {
 impl fmt::Debug for U32HexWrapper {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "0x{:x}", self.0)
-    }
-}
-
-// WndProc in traditional Win32 examples
-extern "system"
-fn win32_event_handler(h_wnd:   windef::HWND,
-                       msg:     u32,
-                       w_param: usize,
-                       l_param: isize) -> isize {
-    use winuser::*;
-    let param = w_param as i32;
-    unsafe {
-        match msg {
-            WM_KEYDOWN if param == VK_ESCAPE   => { DestroyWindow(h_wnd); },
-            WM_DESTROY                         => { PostQuitMessage(0); },
-            WM_LBUTTONDOWN => {
-                println!("Click? {:x}, {:x}", w_param, l_param);
-            },
-            _ => {
-                return DefWindowProcA(h_wnd, msg, w_param, l_param);
-            },
-        };
-        // All of the branches return 0 if they handle the message.
-        0
-    }
-}
-
-fn init_main_window() -> Result<windef::HWND, u32> {
-    use winapi::shared::{
-        windef::*,
-        minwindef::*,
-    };
-    use winapi::um::{
-        wingdi::*,
-        winuser::*,
-    };
-    use winapi::um::libloaderapi::*;
-
-    unsafe {
-        let h_instance = GetModuleHandleA(ptr::null_mut()) as HINSTANCE;
-
-        let wc = WNDCLASSA {
-            style:         CS_HREDRAW | CS_VREDRAW,
-            lpfnWndProc:   Some(win32_event_handler),
-            cbClsExtra:    0,
-            cbWndExtra:    0,
-            hInstance:     h_instance,
-            hIcon:         LoadIconW(ptr::null_mut(), IDI_APPLICATION),
-            hCursor:       LoadCursorW(ptr::null_mut(), IDC_ARROW),
-            hbrBackground: GetStockObject(WHITE_BRUSH as i32) as HBRUSH,
-            lpszMenuName:  ptr::null_mut(),
-            lpszClassName: b"BasicWndClass".as_ptr() as *const i8,
-        };
-
-        if RegisterClassA(&wc) != 0 {
-            let hr: winerror::HRESULT = GetLastError() as i32;
-            check_hresult!(hr, RegisterClassA)?;
-        }
-
-        let window_title = b"DX12 Sample".as_ptr() as *const i8;
-        let h_wnd = CreateWindowExA(0x0,                 // Ex style flags
-                                    wc.lpszClassName,
-                                    window_title,
-                                    WS_OVERLAPPEDWINDOW, // Style flags
-                                    CW_USEDEFAULT,       // x-coord
-                                    CW_USEDEFAULT,       // y-coord
-                                    CW_USEDEFAULT,       // width
-                                    CW_USEDEFAULT,       // height
-                                    ptr::null_mut(),     // Parent window
-                                    ptr::null_mut(),     // Menu handle
-                                    h_instance,
-                                    ptr::null_mut()      /*Extra params*/);
-
-        ShowWindow(h_wnd, 1);
-        UpdateWindow(h_wnd);
-
-        Ok(h_wnd)
     }
 }
 
@@ -145,7 +67,7 @@ fn main() -> Result<(), U32HexWrapper> {
         unsafe { d3d12_debug.EnableDebugLayer(); }
     }
 
-    let h_wnd = init_main_window()?;
+    let h_wnd = win32_window::init_window("Dx12?")?;
 
     let dxgi_factory: ComPtr<IDXGIFactory4> = unsafe {
         let mut p_dxgi_factory: *mut IDXGIFactory4 = ptr::null_mut();

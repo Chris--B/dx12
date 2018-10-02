@@ -3,16 +3,16 @@
 macro_rules! check_hresult {
     ($hresult:expr, $function:expr) => {
         {
-            use std::io::Write;
-            use termcolor::{
+            use ::std::io::Write;
+            use ::termcolor::{
                 ColorChoice,
                 ColorSpec,
                 StandardStream,
                 WriteColor,
             };
 
-            let hresult = $hresult;
-            if !winerror::SUCCEEDED(hresult) {
+            let hresult: i32 = $hresult;
+            if !::winapi::shared::winerror::SUCCEEDED(hresult) {
                 let empty = ColorSpec::new();
                 let specs = ::error::get_color_spec_catalog();
 
