@@ -32,13 +32,13 @@ use winapi::{
 
     um::d3d12::*,
     um::d3d12sdklayers::*,
-    um::d3dcommon::*,
     um::dxgidebug::*,
 };
 
 #[macro_use]
 mod macros;
 mod error;
+mod config;
 
 struct U32HexWrapper(u32);
 
@@ -52,48 +52,6 @@ impl fmt::Debug for U32HexWrapper {
     }
 }
 
-fn get_arg_matches<'a>() -> clap::ArgMatches<'a> {
-    use clap::{App, Arg};
-    App
-        // Metadata
-        ::new("Dx12 Demo")
-        .author("Chris Butler <chrisbutler296@gmail.com>")
-        .about("Draw things with DX12")
-
-        // Adapter selection
-        .arg(Arg::with_name("warp")
-                .help("Force using the warp adapter")
-                .long("warp")
-                .short("w")
-                .required(false)
-                .overrides_with("adapter"))
-        // TODO: Some way to select an adapter
-
-        // Debug options
-        .arg(Arg::with_name("debug-layer")
-                .display_order(3000)
-                .help("Enable the DX12 runtime debug layer")
-                .long("debug-layer")
-                .overrides_with("no-debug-layer"))
-        .arg(Arg::with_name("no-debug-layer")
-                .display_order(3001)
-                .help("Disable the DX12 runtime debug layer")
-                .long("no-debug-layer")
-                .overrides_with("debug-layer"))
-
-        // I change this enough to just make it an option.
-        .arg(Arg::with_name("feature-level")
-                .help("Force using a specific feature level for CreateDevice")
-                .long("feature-level")
-                .possible_values(&["11", "11.0", "11_0",
-                                         "11.1", "11_1",
-                                   "12", "12.0", "12_0",
-                                         "12.1", "12_1"])
-                .default_value("11_0"))
-
-        // End
-        .get_matches()
-}
 
 fn init_main_window() -> Result<windef::HWND, u32> {
     use winapi::shared::{
@@ -160,7 +118,7 @@ fn init_main_window() -> Result<windef::HWND, u32> {
 }
 
 fn main() -> Result<(), U32HexWrapper> {
-    let matches = get_arg_matches();
+    let conf = config::Config::load();
 
     let d3d12_debug: ComPtr<ID3D12Debug> = unsafe {
         let mut p_debug: *mut ID3D12Debug = ptr::null_mut();
@@ -170,7 +128,7 @@ fn main() -> Result<(), U32HexWrapper> {
         ComPtr::from_raw(p_debug)
     };
 
-    if !matches.is_present("no-debug-layer") {
+    if conf.enable_debug {
         unsafe { d3d12_debug.EnableDebugLayer(); }
     }
 
@@ -192,22 +150,10 @@ fn main() -> Result<(), U32HexWrapper> {
         ComPtr::from_raw(p_adapter)
     };
 
-    let feature_level: u32 = match matches.value_of("feature-level").unwrap() {
-        "11" | "11.0" | "11_0" => D3D_FEATURE_LEVEL_11_0,
-               "11.1" | "11_1" => D3D_FEATURE_LEVEL_11_1,
-        "12" | "12.0" | "12_0" => D3D_FEATURE_LEVEL_12_0,
-               "12.1" | "12_1" => D3D_FEATURE_LEVEL_12_1,
-        text                   => {
-            panic!("Unrecognized feature level \"{}\": This is a bug.", text);
-        },
-    };
-
     let device: ComPtr<ID3D12Device> = unsafe {
         // We'll either use the default adapter (NULL), or the software renderer
         // if the user asked for that.
-        let p_adapter = if matches.is_present("warp") {
-            // TODO: Does CreateDevice take ownership of the adapter
-            //       we give it?
+        let p_adapter = if conf.force_warp {
             warp_adapter.as_raw()
         } else {
             ptr::null()
@@ -215,7 +161,7 @@ fn main() -> Result<(), U32HexWrapper> {
 
         let mut p_device: *mut ID3D12Device = ptr::null_mut();
         let hr = D3D12CreateDevice(p_adapter as *mut IUnknown,
-                                   feature_level,
+                                   conf.feature_level,
                                    &ID3D12Device::uuidof(),
                                    &mut p_device as *mut _ as *mut _);
         check_hresult!(hr, D3D12CreateDevice)?;
@@ -296,7 +242,7 @@ fn main() -> Result<(), U32HexWrapper> {
     };
 
     let dxgi_debug: ComPtr<IDXGIDebug>;
-    if !matches.is_present("no-debug-layer") {
+    if conf.enable_debug {
         unsafe {
             let mut p_dxgi_debug: *mut IDXGIDebug = ptr::null_mut();
             let hr = DXGIGetDebugInterface1(0, // flags, unused
@@ -332,7 +278,6 @@ fn main() -> Result<(), U32HexWrapper> {
         Windowed: 1,
         SwapEffect: DXGI_SWAP_EFFECT_FLIP_DISCARD,
         Flags: DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH,
-        // ..unsafe { mem::zeroed() }
     };
     println!("{:#?}\n", swapchain_desc);
 
