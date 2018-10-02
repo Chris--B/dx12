@@ -40,7 +40,18 @@ extern "system" fn wnd_proc(h_wnd:   HWND,
             WM_KEYDOWN if param == VK_ESCAPE   => { DestroyWindow(h_wnd); },
             WM_DESTROY                         => { PostQuitMessage(0);   },
             WM_LBUTTONDOWN => {
-                println!("Click? {:x}, {:x}", w_param, l_param);
+                #[repr(C)]
+                #[derive(Debug)]
+                struct Xy {
+                    x: u16,
+                    y: u16,
+                    _zero: u32,
+                }
+                let xy: Xy = ::std::mem::transmute(l_param);
+                println!("Click? w_param=0x{:08x}, l_param=0x{:08x} xy={:?}",
+                         w_param,
+                         l_param,
+                         xy);
             },
             _ => {
                 return DefWindowProcA(h_wnd, msg, w_param, l_param);
