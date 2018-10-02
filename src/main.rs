@@ -232,7 +232,7 @@ fn main() -> Result<(), U32HexWrapper> {
                                            ptr::null_mut(), // hWnd
                                            0,               // wMsgFilterMin
                                            0);              // wMsgFilterMax
-            if ret == -1 {
+            if ret == 0 {
                 break;
             }
             winuser::TranslateMessage(&msg);
