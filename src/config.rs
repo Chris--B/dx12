@@ -73,6 +73,7 @@ fn get_arg_matches<'a>() -> ::clap::ArgMatches<'a> {
         ::new("Dx12 Demo")
         .about("Draw things with DX12")
         .setting(AppSettings::DisableVersion)
+        .setting(AppSettings::UnifiedHelpMessage)
 
         // The default "--help" Arg has a display order of 999,
         // So we start ours at 3000.
