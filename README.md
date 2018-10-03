@@ -7,16 +7,14 @@ Run `cargo run -- --help` for a full list of options.
 
 ```
 Dx12 Demo
-Chris Butler <chrisbutler296@gmail.com>
 Draw things with DX12
 
 USAGE:
     dx12.exe [FLAGS] [OPTIONS]
 
 FLAGS:
+    -w, --force-warp        Force using the warp adapter
     -h, --help              Prints help information
-    -V, --version           Prints version information
-    -w, --warp              Force using the warp adapter
         --debug-layer       Enable the DX12 runtime debug layer
         --no-debug-layer    Disable the DX12 runtime debug layer
 
