@@ -35,13 +35,10 @@ macro_rules! check_hresult {
                 // Part of why we pass it to the macro is to validate that it's
                 // a legal symbol. This does that.
                 let _pfn = $function as *const () as usize;
-                write!(stderr, "{}", stringify!($function));
-
-                stderr.set_color(&empty).unwrap();
-                write!(stderr, " failed with ");
+                write!(stderr, "{}: ", stringify!($function));
 
                 stderr.set_color(&specs.windows_msg).unwrap();
-                write!(stderr, "\"{}\"", ::error::win_error_msg(hresult));
+                write!(stderr, "{}", ::error::win_error_msg(hresult));
 
                 stderr.set_color(&empty).unwrap();
                 write!(stderr, " (");

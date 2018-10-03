@@ -112,6 +112,8 @@ fn main() -> Result<(), U32HexWrapper> {
         ComPtr::from_raw(p_fence)
     };
 
+    // This is arbitrary right now.
+    let backbuffer_format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
     unsafe {
         let rtv_desc_size = device.GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
         let dsv_desc_size = device.GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
@@ -123,7 +125,7 @@ fn main() -> Result<(), U32HexWrapper> {
     }
 
     let mut ms_quality = D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS {
-        Format:             DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+        Format:             backbuffer_format,
         SampleCount:        4,
         Flags:              D3D12_MULTISAMPLE_QUALITY_LEVELS_FLAG_NONE,
         NumQualityLevels:   0,
@@ -135,7 +137,7 @@ fn main() -> Result<(), U32HexWrapper> {
         check_hresult!(hr, ID3D12Device::CheckFeatureSupport)?;
     };
     let ms_quality = ms_quality;
-    println!("{:#?}\n", ms_quality);
+    println!("{:#?}\n\n", ms_quality);
 
     //
     // ---- Create command objects ------------
@@ -199,7 +201,7 @@ fn main() -> Result<(), U32HexWrapper> {
             Width:  1024,
             Height: 1024,
             RefreshRate: DXGI_RATIONAL { Numerator: 60, Denominator: 1},
-            Format: DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+            Format: backbuffer_format,
             ScanlineOrdering: DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED,
             Scaling: DXGI_MODE_SCALING_UNSPECIFIED,
         },
@@ -214,7 +216,7 @@ fn main() -> Result<(), U32HexWrapper> {
         SwapEffect: DXGI_SWAP_EFFECT_FLIP_DISCARD,
         Flags: DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH,
     };
-    println!("{:#?}", swapchain_desc);
+    println!("{:#?}\n", swapchain_desc);
 
     let _swapchain: ComPtr<IDXGISwapChain> = unsafe {
         let mut p_swapchain: *mut IDXGISwapChain = ptr::null_mut();
