@@ -17,7 +17,6 @@ use winapi::{
     Interface,
     um::unknwnbase::IUnknown,
 
-    shared::winerror,
     um::winuser,
 
     // These functions include a namespace in their names, so we won't
@@ -47,7 +46,7 @@ impl From<u32> for U32HexWrapper {
 }
 
 impl fmt::Debug for U32HexWrapper {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "0x{:x}", self.0)
     }
 }
@@ -135,6 +134,7 @@ fn main() -> Result<(), U32HexWrapper> {
                                             mem::size_of_val(&ms_quality) as u32);
         check_hresult!(hr, ID3D12Device::CheckFeatureSupport)?;
     };
+    let ms_quality = ms_quality;
     println!("{:#?}\n", ms_quality);
 
     //
@@ -205,7 +205,7 @@ fn main() -> Result<(), U32HexWrapper> {
         },
         SampleDesc: DXGI_SAMPLE_DESC {
             Count: 4,
-            Quality: 16,
+            Quality: 3,
         },
         BufferUsage: DXGI_USAGE_RENDER_TARGET_OUTPUT,
         BufferCount: 3, // swapchainBufferCount
@@ -214,16 +214,16 @@ fn main() -> Result<(), U32HexWrapper> {
         SwapEffect: DXGI_SWAP_EFFECT_FLIP_DISCARD,
         Flags: DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH,
     };
-    println!("{:#?}\n", swapchain_desc);
+    println!("{:#?}", swapchain_desc);
 
-    // let _swapchain: ComPtr<IDXGISwapChain> = unsafe {
-    //     let mut p_swapchain: *mut IDXGISwapChain = ptr::null_mut();
-    //     let hr = dxgi_factory.CreateSwapChain(cmd_queue.as_raw() as *mut _,
-    //                                           &mut swapchain_desc,
-    //                                           &mut p_swapchain);
-    //     check_hresult!(hr, IDXGIFactory::CreateSwapChain)?;
-    //     ComPtr::from_raw(p_swapchain)
-    // };
+    let _swapchain: ComPtr<IDXGISwapChain> = unsafe {
+        let mut p_swapchain: *mut IDXGISwapChain = ptr::null_mut();
+        let hr = dxgi_factory.CreateSwapChain(cmd_queue.as_raw() as *mut _,
+                                              &mut swapchain_desc,
+                                              &mut p_swapchain);
+        check_hresult!(hr, IDXGIFactory::CreateSwapChain)?;
+        ComPtr::from_raw(p_swapchain)
+    };
 
     loop {
         unsafe {
