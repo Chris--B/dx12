@@ -1,4 +1,11 @@
 
+use std::{
+    str,
+    io,
+};
+use log;
+use fern;
+
 #[derive(Debug, Copy, Clone)]
 pub struct Config {
     pub force_warp: bool,
@@ -40,7 +47,7 @@ pub enum Dx12FeatureLevel {
 #[derive(Debug)]
 pub struct InvalidFeatureLevel;
 
-impl ::std::str::FromStr for Dx12FeatureLevel {
+impl str::FromStr for Dx12FeatureLevel {
     type Err = InvalidFeatureLevel;
 
     fn from_str(string: &str) -> Result<Self, Self::Err> {
@@ -131,4 +138,24 @@ fn get_arg_matches<'a>() -> ::clap::ArgMatches<'a> {
 
         // End
         .get_matches()
+}
+
+pub fn setup_logger() -> Result<(), u32> {
+    ::fern::Dispatch::new()
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "[{:<}\t{}:{}]\n{}\n[/{:>}]\n",
+                record.level(),
+                record.file().unwrap_or("ಠ_ಠ"),
+                record.line().unwrap_or(0),
+                message,
+                record.level()
+            ))
+        })
+        .level(log::LevelFilter::Trace)
+        .chain(io::stdout())
+        .chain(fern::log_file("dx12_debug.log").map_err(|_| 0xdeadf13u32)?)
+        .apply()
+        .map_err(|_| 0xdeadbeefu32)?;
+    Ok(())
 }

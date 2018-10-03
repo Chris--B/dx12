@@ -1,5 +1,7 @@
 #![feature(termination_trait_lib)]
 
+#[macro_use] extern crate log;
+extern crate fern;
 extern crate clap;
 extern crate termcolor;
 extern crate winapi;
@@ -54,6 +56,7 @@ impl fmt::Debug for U32HexWrapper {
 fn main() -> Result<(), U32HexWrapper> {
     let conf = config::Config::load();
     println!("{:#?}\n", conf);
+    config::setup_logger()?;
 
     let d3d12_debug: ComPtr<ID3D12Debug> = unsafe {
         let mut p_debug: *mut ID3D12Debug = ptr::null_mut();
@@ -119,10 +122,9 @@ fn main() -> Result<(), U32HexWrapper> {
         let rtv_desc_size = device.GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
         let dsv_desc_size = device.GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
         let cbv_srv_desc_size = device.GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-        println!("rtv_desc_size     = {}", rtv_desc_size);
-        println!("dsv_desc_size     = {}", dsv_desc_size);
-        println!("cbv_srv_desc_size = {}", cbv_srv_desc_size);
-        println!("");
+        info!("rtv_desc_size     = {}", rtv_desc_size);
+        info!("dsv_desc_size     = {}", dsv_desc_size);
+        info!("cbv_srv_desc_size = {}", cbv_srv_desc_size);
     }
 
     let mut ms_quality = D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS {
@@ -138,7 +140,7 @@ fn main() -> Result<(), U32HexWrapper> {
         check_hresult!(hr, ID3D12Device::CheckFeatureSupport)?;
     };
     let ms_quality = ms_quality;
-    println!("{:#?}\n", ms_quality);
+    info!("{:#?}", ms_quality);
 
     //
     // ---- Create command objects ------------
@@ -217,7 +219,7 @@ fn main() -> Result<(), U32HexWrapper> {
         SwapEffect: DXGI_SWAP_EFFECT_FLIP_DISCARD,
         Flags: DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH,
     };
-    println!("{:#?}\n", swapchain_desc);
+    info!("{:#?}", swapchain_desc);
 
     let _swapchain: ComPtr<IDXGISwapChain> = unsafe {
         let mut p_swapchain: *mut IDXGISwapChain = ptr::null_mut();
