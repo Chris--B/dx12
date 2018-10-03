@@ -53,6 +53,7 @@ impl fmt::Debug for U32HexWrapper {
 
 fn main() -> Result<(), U32HexWrapper> {
     let conf = config::Config::load();
+    println!("{:#?}\n", conf);
 
     let d3d12_debug: ComPtr<ID3D12Debug> = unsafe {
         let mut p_debug: *mut ID3D12Debug = ptr::null_mut();
@@ -95,7 +96,7 @@ fn main() -> Result<(), U32HexWrapper> {
 
         let mut p_device: *mut ID3D12Device = ptr::null_mut();
         let hr = D3D12CreateDevice(p_adapter as *mut IUnknown,
-                                   conf.feature_level,
+                                   conf.feature_level.into(),
                                    &ID3D12Device::uuidof(),
                                    &mut p_device as *mut _ as *mut _);
         check_hresult!(hr, D3D12CreateDevice)?;
@@ -137,7 +138,7 @@ fn main() -> Result<(), U32HexWrapper> {
         check_hresult!(hr, ID3D12Device::CheckFeatureSupport)?;
     };
     let ms_quality = ms_quality;
-    println!("{:#?}\n\n", ms_quality);
+    println!("{:#?}\n", ms_quality);
 
     //
     // ---- Create command objects ------------
