@@ -17,6 +17,7 @@ use winapi::{
     Interface,
     um::unknwnbase::IUnknown,
 
+    shared::winerror,
     um::winuser,
 
     // These functions include a namespace in their names, so we won't
@@ -77,6 +78,7 @@ fn main() -> Result<(), U32HexWrapper> {
         ComPtr::from_raw(p_dxgi_factory)
     };
 
+    // Load the warp adapter
     let warp_adapter: ComPtr<IDXGIAdapter> = unsafe {
         let mut p_adapter: *mut IDXGIAdapter = ptr::null_mut();
         let hr = dxgi_factory.EnumWarpAdapter(&IDXGIAdapter::uuidof(),
@@ -84,6 +86,39 @@ fn main() -> Result<(), U32HexWrapper> {
         check_hresult!(hr, IDXGIFactory4::EnumWarpAdapter)?;
         ComPtr::from_raw(p_adapter)
     };
+
+    // Load all the other adapters
+    let mut adapters: Vec<ComPtr<IDXGIAdapter3>> = vec![];
+    unsafe {
+        let mut i = 0;
+        loop {
+            let mut adapter: *mut IDXGIAdapter = ptr::null_mut();
+            let hr = dxgi_factory.EnumAdapters(i, &mut adapter as *mut _);
+            if hr == winerror::DXGI_ERROR_NOT_FOUND {
+                break;
+            }
+            i += 1;
+            check_hresult!(hr, IDXGIFactory::EnumAdapters)?;
+            adapters.push(ComPtr::from_raw(adapter as *mut _));
+        }
+    }
+
+    for (adapter, i) in adapters.iter().zip(1..) {
+        unsafe {
+            let mut desc: DXGI_ADAPTER_DESC = mem::zeroed();
+            let hr = adapter.GetDesc(&mut desc as *mut _);
+            check_hresult!(hr, IDXGIAdapter::GetDesc)?;
+            println!("Adapter {}:", i);
+            // println!("    Description:           {}", description);
+            println!("    VendorId:              0x{:x}", desc.VendorId);
+            println!("    DeviceId:              0x{:x}", desc.DeviceId);
+            println!("    SubSysId:              0x{:x}", desc.SubSysId);
+            println!("    Revision:              {}",     desc.Revision);
+            println!("    DedicatedVideoMemory:  0x{:x}", desc.DedicatedVideoMemory);
+            println!("    DedicatedSystemMemory: 0x{:x}", desc.DedicatedSystemMemory);
+            println!("    SharedSystemMemory:    0x{:x}", desc.SharedSystemMemory);
+        }
+    }
 
     let device: ComPtr<ID3D12Device> = unsafe {
         // We'll either use the default adapter (NULL), or the software renderer
@@ -125,20 +160,49 @@ fn main() -> Result<(), U32HexWrapper> {
         println!("");
     }
 
-    let mut ms_quality = D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS {
-        Format:             backbuffer_format,
-        SampleCount:        4,
-        Flags:              D3D12_MULTISAMPLE_QUALITY_LEVELS_FLAG_NONE,
-        NumQualityLevels:   0,
-    };
+    let ms_quality: u32;
+    {
+        let mut multisample_quality = D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS {
+            Format:             backbuffer_format,
+            SampleCount:        4,
+            Flags:              D3D12_MULTISAMPLE_QUALITY_LEVELS_FLAG_NONE,
+            NumQualityLevels:   0,
+        };
+        unsafe {
+            let hr = device.CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS,
+                                                &mut multisample_quality as *mut _ as *mut _,
+                                                mem::size_of_val(&multisample_quality) as u32);
+            check_hresult!(hr, ID3D12Device::CheckFeatureSupport)?;
+        };
+        println!("{:#?}\n", multisample_quality);
+        ms_quality = multisample_quality.NumQualityLevels;
+    }
+
+    let gpu_va;
+    {
+        let mut gpu_va_info: D3D12_FEATURE_DATA_GPU_VIRTUAL_ADDRESS_SUPPORT  ;
+        unsafe {
+            gpu_va_info = mem::zeroed();
+            let hr = device.CheckFeatureSupport(D3D12_FEATURE_GPU_VIRTUAL_ADDRESS_SUPPORT,
+                                                &mut gpu_va_info as *mut _ as *mut _,
+                                                mem::size_of_val(&gpu_va_info) as u32);
+            check_hresult!(hr, ID3D12Device::CheckFeatureSupport)?;
+            check_hresult!(hr, IDXGIAdapter3::QueryVideoMemoryInfo)?;
+        };
+        gpu_va = gpu_va_info;
+    }
+    println!("{:#?}\n", gpu_va);
+
+    let vidmem: DXGI_QUERY_VIDEO_MEMORY_INFO;
     unsafe {
-        let hr = device.CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS,
-                                            &mut ms_quality as *mut _ as *mut _,
-                                            mem::size_of_val(&ms_quality) as u32);
-        check_hresult!(hr, ID3D12Device::CheckFeatureSupport)?;
-    };
-    let ms_quality = ms_quality;
-    println!("{:#?}\n", ms_quality);
+        let mut vidmem_info: DXGI_QUERY_VIDEO_MEMORY_INFO = mem::zeroed();
+        let hr = adapters[0].QueryVideoMemoryInfo(0, // Node index
+                                                  DXGI_MEMORY_SEGMENT_GROUP_LOCAL,
+                                                  &mut vidmem_info as *mut _);
+        check_hresult!(hr, IDXGIAdapter3::QueryVideoMemoryInfo)?;
+        vidmem = vidmem_info;
+    }
+    println!("{:#?}\n", vidmem);
 
     //
     // ---- Create command objects ------------
@@ -207,8 +271,8 @@ fn main() -> Result<(), U32HexWrapper> {
             Scaling: DXGI_MODE_SCALING_UNSPECIFIED,
         },
         SampleDesc: DXGI_SAMPLE_DESC {
-            Count: 4,
-            Quality: 3,
+            Count: ms_quality,
+            Quality: ms_quality-1,
         },
         BufferUsage: DXGI_USAGE_RENDER_TARGET_OUTPUT,
         BufferCount: 3, // swapchainBufferCount
