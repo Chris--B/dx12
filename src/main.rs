@@ -36,6 +36,7 @@ use winapi::{
 
 #[macro_use]
 mod macros;
+mod d3d12_util;
 mod error;
 mod config;
 mod win32_window;
@@ -160,38 +161,14 @@ fn main() -> Result<(), U32HexWrapper> {
         println!("");
     }
 
-    let ms_quality: u32;
-    {
-        let mut multisample_quality = D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS {
-            Format:             backbuffer_format,
-            SampleCount:        4,
-            Flags:              D3D12_MULTISAMPLE_QUALITY_LEVELS_FLAG_NONE,
-            NumQualityLevels:   0,
-        };
-        unsafe {
-            let hr = device.CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS,
-                                                &mut multisample_quality as *mut _ as *mut _,
-                                                mem::size_of_val(&multisample_quality) as u32);
-            check_hresult!(hr, ID3D12Device::CheckFeatureSupport)?;
-        };
-        println!("{:#?}\n", multisample_quality);
-        ms_quality = multisample_quality.NumQualityLevels;
-    }
+    let gpu_va_info: D3D12_FEATURE_DATA_GPU_VIRTUAL_ADDRESS_SUPPORT;
+    gpu_va_info = d3d12_util::check_device_feature(&device)?;
+    println!("{:#?}\n", gpu_va_info);
 
-    let gpu_va;
-    {
-        let mut gpu_va_info: D3D12_FEATURE_DATA_GPU_VIRTUAL_ADDRESS_SUPPORT  ;
-        unsafe {
-            gpu_va_info = mem::zeroed();
-            let hr = device.CheckFeatureSupport(D3D12_FEATURE_GPU_VIRTUAL_ADDRESS_SUPPORT,
-                                                &mut gpu_va_info as *mut _ as *mut _,
-                                                mem::size_of_val(&gpu_va_info) as u32);
-            check_hresult!(hr, ID3D12Device::CheckFeatureSupport)?;
-            check_hresult!(hr, IDXGIAdapter3::QueryVideoMemoryInfo)?;
-        };
-        gpu_va = gpu_va_info;
-    }
-    println!("{:#?}\n", gpu_va);
+    // let multisample_quality: D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS;
+    // multisample_quality = d3d12_util::check_device_feature(&device)?;
+    // let ms_quality: u32 = multisample_quality.NumQualityLevels;
+    let ms_quality = 4u32;
 
     let vidmem: DXGI_QUERY_VIDEO_MEMORY_INFO;
     unsafe {
@@ -203,6 +180,25 @@ fn main() -> Result<(), U32HexWrapper> {
         vidmem = vidmem_info;
     }
     println!("{:#?}\n", vidmem);
+
+    println!("ID3D12Device::CheckFeatureSupport():");
+    {
+        use d3d12_util::check_device_feature;
+        println!("{:#?}\n", check_device_feature::<D3D12_FEATURE_DATA_D3D12_OPTIONS>(&device)?);
+        println!("{:#?}\n", check_device_feature::<D3D12_FEATURE_DATA_ARCHITECTURE>(&device)?);
+        // println!("{:#?}\n", check_device_feature::<D3D12_FEATURE_DATA_FEATURE_LEVELS>(&device)?);
+        println!("{:#?}\n", check_device_feature::<D3D12_FEATURE_DATA_FORMAT_SUPPORT>(&device)?);
+        // println!("{:#?}\n", check_device_feature::<D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS>(&device)?);
+        println!("{:#?}\n", check_device_feature::<D3D12_FEATURE_DATA_FORMAT_INFO>(&device)?);
+        println!("{:#?}\n", check_device_feature::<D3D12_FEATURE_DATA_GPU_VIRTUAL_ADDRESS_SUPPORT>(&device)?);
+        // println!("{:#?}\n", check_device_feature::<D3D12_FEATURE_DATA_SHADER_MODEL>(&device)?);
+        println!("{:#?}\n", check_device_feature::<D3D12_FEATURE_DATA_D3D12_OPTIONS1>(&device)?);
+        // println!("{:#?}\n", check_device_feature::<D3D12_FEATURE_DATA_ROOT_SIGNATURE>(&device)?);
+        println!("{:#?}\n", check_device_feature::<D3D12_FEATURE_DATA_ARCHITECTURE1>(&device)?);
+        println!("{:#?}\n", check_device_feature::<D3D12_FEATURE_DATA_D3D12_OPTIONS2>(&device)?);
+        println!("{:#?}\n", check_device_feature::<D3D12_FEATURE_DATA_SHADER_CACHE>(&device)?);
+        println!("{:#?}\n", check_device_feature::<D3D12_FEATURE_DATA_COMMAND_QUEUE_PRIORITY>(&device)?);
+    }
 
     //
     // ---- Create command objects ------------
