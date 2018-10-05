@@ -1,14 +1,7 @@
 
-macro_rules! make_fmt {
-    ($arg:expr) => (format_args!("{:#?}", $arg));
-    ($first:expr, $($args:expr),+) => (
-        format_args!("{:#?}, {:#?}", $first, make_fmt!($($args),+))
-    )
-}
 
 macro_rules! check_hresult {
-    ($hresult:expr, $function:expr) => (check_hresult!($hresult, $function, ""));
-    ($hresult:expr, $function:expr, $($args:expr),+) => {
+    ($hresult:expr, $function:expr) => {
         {
             use ::std::io::Write;
             use ::termcolor::{
@@ -42,9 +35,7 @@ macro_rules! check_hresult {
                 // Part of why we pass it to the macro is to validate that it's
                 // a legal symbol. This does that.
                 let _pfn = $function as *const () as usize;
-                write!(stderr, "{}({}): ",
-                       stringify!($function),
-                       make_fmt!($($args),+));
+                write!(stderr, "{}: ", stringify!($function));
 
                 stderr.set_color(&specs.windows_msg).unwrap();
                 write!(stderr, "{}", ::error::win_error_msg(hresult));
