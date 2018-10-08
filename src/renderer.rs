@@ -14,6 +14,7 @@ use winapi::{
     shared::winerror,
     shared::winerror::HRESULT,
     shared::ntdef::HANDLE,
+    shared::windef::HWND,
     um::winuser,
 
     // These functions include a namespace in their names, so we won't
@@ -122,7 +123,8 @@ pub struct Renderer {
 
 impl Renderer {
     /// Initialize a renderer, or return an error describing why we couldn't.
-    pub fn create(config: &config::Config) -> Result<Renderer, WindowsError> {
+    pub fn create(config: &config::Config,
+                  h_wnd:  HWND) -> Result<Renderer, WindowsError> {
         if config.enable_debug {
             init_debug_objects()?;
         }
@@ -162,7 +164,7 @@ impl Renderer {
         let cmd_alloc = init_cmd_alloc(&device)?;
         let gfx_cmd_list = init_gfx_cmd_list(&device, &cmd_alloc)?;
 
-        let mut swapchain_desc = DXGI_SWAP_CHAIN_DESC {
+        let swapchain_desc = DXGI_SWAP_CHAIN_DESC {
             BufferDesc: DXGI_MODE_DESC {
                 Width:  1024,
                 Height: 1024,
@@ -177,7 +179,7 @@ impl Renderer {
             },
             BufferUsage: DXGI_USAGE_RENDER_TARGET_OUTPUT,
             BufferCount: FRAME_COUNT as u32,
-            OutputWindow: ptr::null_mut(), // h_wnd,
+            OutputWindow: h_wnd,
             Windowed: 1,
             SwapEffect: DXGI_SWAP_EFFECT_FLIP_DISCARD,
             Flags: DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH,
