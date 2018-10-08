@@ -1,5 +1,9 @@
 #![feature(termination_trait_lib)]
 
+#![allow(unused_imports)]
+#![allow(unused_variables)]
+#![allow(dead_code)]
+
 extern crate clap;
 extern crate termcolor;
 extern crate winapi;
@@ -39,28 +43,25 @@ mod macros;
 mod error;
 mod config;
 mod win32_window;
+mod renderer;
 
-struct U32HexWrapper(u32);
+fn main() -> Result<(), error::WindowsError> {
+    let conf = config::Config::load();
+    println!("{:#?}\n", conf);
 
-impl From<u32> for U32HexWrapper {
-    fn from(num: u32) -> U32HexWrapper { U32HexWrapper(num) }
+    let _r = renderer::Renderer::create(&conf)?;
+
+    Ok(())
 }
 
-impl fmt::Debug for U32HexWrapper {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "0x{:x}", self.0)
-    }
-}
-
-fn main() -> Result<(), U32HexWrapper> {
+fn main2() -> Result<(), error::WindowsError> {
     let conf = config::Config::load();
     println!("{:#?}\n", conf);
 
     let d3d12_debug: ComPtr<ID3D12Debug> = unsafe {
         let mut p_debug: *mut ID3D12Debug = ptr::null_mut();
-        let hr = D3D12GetDebugInterface(&ID3D12Debug::uuidof(),
-                                        &mut p_debug as *mut _ as *mut _);
-        check_hresult!(hr, D3D12GetDebugInterface)?;
+        hr!(D3D12GetDebugInterface(&ID3D12Debug::uuidof(),
+                                        &mut p_debug as *mut _ as *mut _))?;
         ComPtr::from_raw(p_debug)
     };
 
@@ -72,18 +73,16 @@ fn main() -> Result<(), U32HexWrapper> {
 
     let dxgi_factory: ComPtr<IDXGIFactory4> = unsafe {
         let mut p_dxgi_factory: *mut IDXGIFactory4 = ptr::null_mut();
-        let hr = CreateDXGIFactory(&IDXGIFactory4::uuidof(),
-                                   &mut p_dxgi_factory as *mut _ as *mut _);
-        check_hresult!(hr, CreateDXGIFactory)?;
+        hr!(CreateDXGIFactory(&IDXGIFactory4::uuidof(),
+                                   &mut p_dxgi_factory as *mut _ as *mut _))?;
         ComPtr::from_raw(p_dxgi_factory)
     };
 
     // Load the warp adapter
     let warp_adapter: ComPtr<IDXGIAdapter> = unsafe {
         let mut p_adapter: *mut IDXGIAdapter = ptr::null_mut();
-        let hr = dxgi_factory.EnumWarpAdapter(&IDXGIAdapter::uuidof(),
-                                              &mut p_adapter as *mut _ as *mut _);
-        check_hresult!(hr, IDXGIFactory4::EnumWarpAdapter)?;
+        hr!(dxgi_factory.EnumWarpAdapter(&IDXGIAdapter::uuidof(),
+                                              &mut p_adapter as *mut _ as *mut _))?;
         ComPtr::from_raw(p_adapter)
     };
 
@@ -97,8 +96,8 @@ fn main() -> Result<(), U32HexWrapper> {
             if hr == winerror::DXGI_ERROR_NOT_FOUND {
                 break;
             }
+            hr!(hr)?;
             i += 1;
-            check_hresult!(hr, IDXGIFactory::EnumAdapters)?;
             adapters.push(ComPtr::from_raw(adapter as *mut _));
         }
     }
@@ -106,8 +105,7 @@ fn main() -> Result<(), U32HexWrapper> {
     for (adapter, i) in adapters.iter().zip(1..) {
         unsafe {
             let mut desc: DXGI_ADAPTER_DESC = mem::zeroed();
-            let hr = adapter.GetDesc(&mut desc as *mut _);
-            check_hresult!(hr, IDXGIAdapter::GetDesc)?;
+            hr!(adapter.GetDesc(&mut desc as *mut _))?;
             println!("Adapter {}:", i);
             // println!("    Description:           {}", description);
             println!("    VendorId:              0x{:x}", desc.VendorId);
@@ -130,21 +128,19 @@ fn main() -> Result<(), U32HexWrapper> {
         };
 
         let mut p_device: *mut ID3D12Device = ptr::null_mut();
-        let hr = D3D12CreateDevice(p_adapter as *mut IUnknown,
+        hr!(D3D12CreateDevice(p_adapter as *mut IUnknown,
                                    conf.feature_level.into(),
                                    &ID3D12Device::uuidof(),
-                                   &mut p_device as *mut _ as *mut _);
-        check_hresult!(hr, D3D12CreateDevice)?;
+                                   &mut p_device as *mut _ as *mut _))?;
         ComPtr::from_raw(p_device)
     };
 
     let _fence: ComPtr<ID3D12Fence> = unsafe {
         let mut p_fence: *mut ID3D12Fence = ptr::null_mut();
-        let hr = device.CreateFence(0,
+        hr!(device.CreateFence(0,
                                     D3D12_FENCE_FLAG_NONE,
                                     &ID3D12Fence::uuidof(),
-                                    &mut p_fence as *mut _ as *mut _);
-        check_hresult!(hr, ID3D12Device::CreateFence)?;
+                                    &mut p_fence as *mut _ as *mut _))?;
         ComPtr::from_raw(p_fence)
     };
 
@@ -169,10 +165,9 @@ fn main() -> Result<(), U32HexWrapper> {
             NumQualityLevels:   0,
         };
         unsafe {
-            let hr = device.CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS,
+            hr!(device.CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS,
                                                 &mut multisample_quality as *mut _ as *mut _,
-                                                mem::size_of_val(&multisample_quality) as u32);
-            check_hresult!(hr, ID3D12Device::CheckFeatureSupport)?;
+                                                mem::size_of_val(&multisample_quality) as u32))?;
         };
         println!("{:#?}\n", multisample_quality);
         ms_quality = multisample_quality.NumQualityLevels;
@@ -183,11 +178,9 @@ fn main() -> Result<(), U32HexWrapper> {
         let mut gpu_va_info: D3D12_FEATURE_DATA_GPU_VIRTUAL_ADDRESS_SUPPORT  ;
         unsafe {
             gpu_va_info = mem::zeroed();
-            let hr = device.CheckFeatureSupport(D3D12_FEATURE_GPU_VIRTUAL_ADDRESS_SUPPORT,
+            hr!(device.CheckFeatureSupport(D3D12_FEATURE_GPU_VIRTUAL_ADDRESS_SUPPORT,
                                                 &mut gpu_va_info as *mut _ as *mut _,
-                                                mem::size_of_val(&gpu_va_info) as u32);
-            check_hresult!(hr, ID3D12Device::CheckFeatureSupport)?;
-            check_hresult!(hr, IDXGIAdapter3::QueryVideoMemoryInfo)?;
+                                                mem::size_of_val(&gpu_va_info) as u32))?;
         };
         gpu_va = gpu_va_info;
     }
@@ -196,10 +189,9 @@ fn main() -> Result<(), U32HexWrapper> {
     let vidmem: DXGI_QUERY_VIDEO_MEMORY_INFO;
     unsafe {
         let mut vidmem_info: DXGI_QUERY_VIDEO_MEMORY_INFO = mem::zeroed();
-        let hr = adapters[0].QueryVideoMemoryInfo(0, // Node index
+        hr!(adapters[0].QueryVideoMemoryInfo(0, // Node index
                                                   DXGI_MEMORY_SEGMENT_GROUP_LOCAL,
-                                                  &mut vidmem_info as *mut _);
-        check_hresult!(hr, IDXGIAdapter3::QueryVideoMemoryInfo)?;
+                                                  &mut vidmem_info as *mut _))?;
         vidmem = vidmem_info;
     }
     println!("{:#?}\n", vidmem);
@@ -215,31 +207,28 @@ fn main() -> Result<(), U32HexWrapper> {
         };
 
         let mut p_cmd_queue: *mut ID3D12CommandQueue = ptr::null_mut();
-        let hr = device.CreateCommandQueue(&queue_desc,
+        hr!(device.CreateCommandQueue(&queue_desc,
                                            &ID3D12CommandQueue::uuidof(),
-                                           &mut p_cmd_queue as *mut _ as *mut _);
-        check_hresult!(hr, ID3D12Device::CreateCommandQueue)?;
+                                           &mut p_cmd_queue as *mut _ as *mut _))?;
         ComPtr::from_raw(p_cmd_queue)
     };
 
     let cmd_alloc: ComPtr<ID3D12CommandAllocator> = unsafe {
         let mut p_cmd_alloc: *mut ID3D12CommandAllocator = ptr::null_mut();
-        let hr = device.CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
+        hr!(device.CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
                                                &ID3D12CommandAllocator::uuidof(),
-                                               &mut p_cmd_alloc as *mut _ as *mut _);
-        check_hresult!(hr, ID3D12Device::CreateCommandAllocator)?;
+                                               &mut p_cmd_alloc as *mut _ as *mut _))?;
         ComPtr::from_raw(p_cmd_alloc)
     };
 
     let _gfx_cmd_list: ComPtr<ID3D12GraphicsCommandList> = unsafe {
         let mut p_gfx_cmd_list: *mut ID3D12GraphicsCommandList = ptr::null_mut();
-        let hr = device.CreateCommandList(0, // node mask
+        hr!(device.CreateCommandList(0, // node mask
                                           D3D12_COMMAND_LIST_TYPE_DIRECT,
                                           cmd_alloc.as_raw(),
                                           ptr::null_mut(), // Initial PSO
                                           &ID3D12GraphicsCommandList::uuidof(),
-                                          &mut p_gfx_cmd_list as *mut _ as *mut _);
-        check_hresult!(hr, ID3D12Device::CreateCommandList)?;
+                                          &mut p_gfx_cmd_list as *mut _ as *mut _))?;
         ComPtr::from_raw(p_gfx_cmd_list)
     };
 
@@ -247,15 +236,14 @@ fn main() -> Result<(), U32HexWrapper> {
     if conf.enable_debug {
         unsafe {
             let mut p_dxgi_debug: *mut IDXGIDebug = ptr::null_mut();
-            let hr = DXGIGetDebugInterface1(0, // flags, unused
+            hr!(DXGIGetDebugInterface1(0, // flags, unused
                                             &IDXGIDebug::uuidof(),
-                                            &mut p_dxgi_debug as *mut _ as *mut _);
+                                            &mut p_dxgi_debug as *mut _ as *mut _))?;
             // MS Docs:
             //      The DXGIGetDebugInterface1 function returns E_NOINTERFACE on
             //      systems without the Windows Software Development Kit (SDK)
             //      installed, because it's a development-time aid.
             // So we report but ignore an error here.
-            let _ = check_hresult!(hr, DXGIGetDebugInterface1);
             dxgi_debug = ComPtr::from_raw(p_dxgi_debug);
             dxgi_debug.ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
         }
@@ -285,10 +273,9 @@ fn main() -> Result<(), U32HexWrapper> {
 
     let _swapchain: ComPtr<IDXGISwapChain> = unsafe {
         let mut p_swapchain: *mut IDXGISwapChain = ptr::null_mut();
-        let hr = dxgi_factory.CreateSwapChain(cmd_queue.as_raw() as *mut _,
+        hr!(dxgi_factory.CreateSwapChain(cmd_queue.as_raw() as *mut _,
                                               &mut swapchain_desc,
-                                              &mut p_swapchain);
-        check_hresult!(hr, IDXGIFactory::CreateSwapChain)?;
+                                              &mut p_swapchain))?;
         ComPtr::from_raw(p_swapchain)
     };
 

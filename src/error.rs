@@ -1,22 +1,50 @@
 
 use std::{
-    self,
+    fmt,
     ptr,
+    str,
 };
 
 use winapi::{
     shared::winerror,
+    shared::winerror::HRESULT,
+    shared::ntdef::HANDLE,
+
     um::winnt,
 };
 
 use termcolor;
 
-fn hresult_code(hresult: winnt::HRESULT) -> u32 {
+pub type WindowsResult<T> = Result<T, WindowsError>;
+
+#[derive(Copy, Clone)]
+pub enum WindowsError {
+    NotImplemented,
+    Hresult(HRESULT),
+}
+
+impl fmt::Debug for WindowsError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use ::error::WindowsError as W;
+        match self {
+            W::NotImplemented => write!(f, "NotImplemented"),
+            W::Hresult(hr)    => write!(f, "HRESULT={}", win_error_msg(*hr)),
+        }
+    }
+}
+
+impl From<HRESULT> for WindowsError {
+    fn from(hresult: HRESULT) -> WindowsError {
+        WindowsError::Hresult(hresult)
+    }
+}
+
+fn hresult_code(hresult: HRESULT) -> u32 {
     // https://docs.microsoft.com/en-us/windows/desktop/api/winerror/nf-winerror-hresult_code
     (hresult as u32) & 0xFFFF
 }
 
-pub fn dxgi_error_msg(hresult: winnt::HRESULT) -> Option<&'static str> {
+pub fn dxgi_error_msg(hresult: HRESULT) -> Option<&'static str> {
     match hresult {
         winerror::DXGI_ERROR_ACCESS_DENIED                => Some("DXGI_ERROR_ACCESS_DENIED"),
         winerror::DXGI_ERROR_ACCESS_LOST                  => Some("DXGI_ERROR_ACCESS_LOST"),
@@ -46,7 +74,7 @@ pub fn dxgi_error_msg(hresult: winnt::HRESULT) -> Option<&'static str> {
     }
 }
 
-pub fn generic_error_msg(hresult: winnt::HRESULT) -> Option<&'static str> {
+pub fn generic_error_msg(hresult: HRESULT) -> Option<&'static str> {
     match hresult {
         winerror::E_UNEXPECTED                  => Some("E_UNEXPECTED"),
         winerror::E_NOTIMPL                     => Some("E_NOTIMPL"),
@@ -72,7 +100,7 @@ pub fn generic_error_msg(hresult: winnt::HRESULT) -> Option<&'static str> {
     }
 }
 
-pub fn win_error_msg(hresult: winnt::HRESULT) -> &'static str {
+pub fn win_error_msg(hresult: HRESULT) -> &'static str {
     use winapi::um::winbase::{
         FormatMessageA,
         FORMAT_MESSAGE_FROM_SYSTEM,
@@ -106,7 +134,7 @@ pub fn win_error_msg(hresult: winnt::HRESULT) -> &'static str {
                                 BUFFER.as_mut_ptr() as *mut _,
                                 BUFFER.len() as u32,
                                 ptr::null_mut());
-        std::str::from_utf8(&BUFFER)
+        str::from_utf8(&BUFFER)
             // We do not expect this message to be malformed.
             // If it is, we have bigger problems than what this is reporting.
             .unwrap()

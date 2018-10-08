@@ -1,5 +1,6 @@
 
 use winapi::{
+    shared::winerror::HRESULT,
     shared::minwindef::HINSTANCE,
     shared::windef::HBRUSH,
     shared::windef::HWND,
@@ -62,7 +63,7 @@ extern "system" fn wnd_proc(h_wnd:   HWND,
     }
 }
 
-pub fn init_window(window_title: &str) -> Result<HWND, u32> {
+pub fn init_window(window_title: &str) -> Result<HWND, HRESULT> {
     unsafe {
         let h_instance = GetModuleHandleA(ptr::null_mut()) as HINSTANCE;
 
@@ -80,9 +81,7 @@ pub fn init_window(window_title: &str) -> Result<HWND, u32> {
         };
 
         if RegisterClassA(&wc) == 0 {
-            let hresult_err = check_hresult!(GetLastError() as i32, RegisterClassA);
-            assert!(hresult_err.is_err());
-            hresult_err?;
+            hr!(GetLastError() as i32)?;
         }
 
         let h_wnd = CreateWindowExA(0x0,                 // Ex style flags
