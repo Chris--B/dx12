@@ -244,30 +244,33 @@ fn enum_adapters(dxgi_factory: &ComPtr<IDXGIFactory4>) -> WindowsResult<Vec<ComP
     }
 
     for (adapter, i) in adapters.iter().zip(1..) {
-        unsafe {
+        let desc: DXGI_ADAPTER_DESC = unsafe {
             let mut desc: DXGI_ADAPTER_DESC = mem::zeroed();
             hr!(adapter.GetDesc(&mut desc as *mut _))?;
             println!("Adapter {}:", i);
+            desc
+        };
 
-            // Encooooodingggggggggggggggg
-            let description = {
-                use std::ffi::OsString;
-                use std::os::windows::prelude::*;
-                OsString::from_wide(&desc.Description)
-                        .into_string()
-                        .unwrap_or_else(|_err|
-                            "<Invalid Description String>".into())
-            };
-            println!("    Description:           {}", description);
+        // Encooooodingggggggggggggggg
+        let description_string = {
+            use std::ffi::OsString;
+            use std::os::windows::prelude::*;
+            OsString::from_wide(&desc.Description)
+                .into_string()
+                .unwrap_or_else(|_os_str| "<Invalid Description String>".into())
+        };
+        let description = description_string.trim_matches(|c| {
+                c == '\n' || c == '\r' || c == '\0'
+        });
 
-            println!("    Vendor:                {}",     vid_to_vendor(desc.VendorId));
-            println!("    DeviceId:              0x{:x}", desc.DeviceId);
-            println!("    SubSysId:              0x{:x}", desc.SubSysId);
-            println!("    Revision:              {}",     desc.Revision);
-            println!("    DedicatedVideoMemory:  0x{:x}", desc.DedicatedVideoMemory);
-            println!("    DedicatedSystemMemory: 0x{:x}", desc.DedicatedSystemMemory);
-            println!("    SharedSystemMemory:    0x{:x}", desc.SharedSystemMemory);
-        }
+        println!("    Description:           {}",     description);
+        println!("    Vendor:                {}",     vid_to_vendor(desc.VendorId));
+        println!("    DeviceId:              0x{:x}", desc.DeviceId);
+        println!("    SubSysId:              0x{:x}", desc.SubSysId);
+        println!("    Revision:              {}",     desc.Revision);
+        println!("    DedicatedVideoMemory:  0x{:x}", desc.DedicatedVideoMemory);
+        println!("    DedicatedSystemMemory: 0x{:x}", desc.DedicatedSystemMemory);
+        println!("    SharedSystemMemory:    0x{:x}", desc.SharedSystemMemory);
     }
 
     Ok(adapters)
