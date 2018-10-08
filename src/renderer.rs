@@ -9,13 +9,9 @@ use wio::com::ComPtr;
 
 use winapi::{
     Interface,
-    um::unknwnbase::IUnknown,
-
     shared::winerror,
-    shared::winerror::HRESULT,
     shared::ntdef::HANDLE,
     shared::windef::HWND,
-    um::winuser,
 
     // These functions include a namespace in their names, so we won't
     // double-namespace them.
@@ -142,9 +138,9 @@ impl Renderer {
         }
         let device = init_device(&adapter, config.feature_level)?;
 
-        let fence = create_fence(&device, D3D12_FENCE_FLAG_NONE)?;
+        let _fence = create_fence(&device, D3D12_FENCE_FLAG_NONE)?;
 
-        let rtvd_size = unsafe {
+        let _rtvd_size = unsafe {
             device.GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV)
         };
 
@@ -162,7 +158,7 @@ impl Renderer {
 
         let cmd_queue = init_cmd_queue(&device)?;
         let cmd_alloc = init_cmd_alloc(&device)?;
-        let gfx_cmd_list = init_gfx_cmd_list(&device, &cmd_alloc)?;
+        let _gfx_cmd_list = init_gfx_cmd_list(&device, &cmd_alloc)?;
 
         let swapchain_desc = DXGI_SWAP_CHAIN_DESC {
             BufferDesc: DXGI_MODE_DESC {
@@ -185,7 +181,7 @@ impl Renderer {
             Flags: DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH,
         };
         println!("{:#?}\n", swapchain_desc);
-        let swapchain = init_swapchain(&dxgi_factory,
+        let _swapchain = init_swapchain(&dxgi_factory,
                                        &cmd_queue,
                                        swapchain_desc)?;
 

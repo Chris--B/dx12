@@ -1,7 +1,7 @@
 #![feature(termination_trait_lib)]
 
-#![allow(unused_imports)]
-#![allow(unused_variables)]
+// I'll toggle this when developing
+// #![deny(warnings)]
 #![allow(dead_code)]
 
 extern crate clap;
@@ -10,32 +10,13 @@ extern crate winapi;
 extern crate wio;
 
 use std::{
-    fmt,
     mem,
     ptr,
 };
 
-use wio::com::ComPtr;
-
 use winapi::{
-    Interface,
-    um::unknwnbase::IUnknown,
-
-    shared::winerror,
+    um::winuser::*,
     um::winuser,
-
-    // These functions include a namespace in their names, so we won't
-    // double-namespace them.
-    // e.g. `d3d12::D3D12CreateDevice`
-    shared::dxgi1_3::DXGIGetDebugInterface1,
-    shared::dxgi1_4::*,
-    shared::dxgi::*,
-    shared::dxgiformat::*,
-    shared::dxgitype::*,
-
-    um::d3d12::*,
-    um::d3d12sdklayers::*,
-    um::dxgidebug::*,
 };
 
 #[macro_use]
@@ -56,15 +37,15 @@ fn main() -> Result<(), error::WindowsError> {
     loop {
         unsafe {
             let mut msg = mem::zeroed();
-            let ret = winuser::GetMessageA(&mut msg,
-                                           ptr::null_mut(), // hWnd
-                                           0,               // wMsgFilterMin
-                                           0);              // wMsgFilterMax
+            let ret = GetMessageA(&mut msg,
+                                  ptr::null_mut(), // hWnd
+                                  0,               // wMsgFilterMin
+                                  0);              // wMsgFilterMax
             if ret == 0 {
                 break;
             }
-            winuser::TranslateMessage(&msg);
-            winuser::DispatchMessageA(&msg);
+            TranslateMessage(&msg);
+            DispatchMessageA(&msg);
         }
     }
 

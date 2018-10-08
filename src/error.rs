@@ -8,9 +8,6 @@ use std::{
 use winapi::{
     shared::winerror,
     shared::winerror::HRESULT,
-    shared::ntdef::HANDLE,
-
-    um::winnt,
 };
 
 use termcolor;
