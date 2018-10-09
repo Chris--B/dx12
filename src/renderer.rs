@@ -10,12 +10,13 @@ use wio::com::ComPtr;
 use winapi::{
     Interface,
     shared::winerror,
-    shared::ntdef::HANDLE,
+    shared::ntdef::*,
     shared::windef::HWND,
 
     // These functions include a namespace in their names, so we won't
     // double-namespace them.
     // e.g. `d3d12::D3D12CreateDevice`
+    shared::dxgi1_2::*,
     shared::dxgi1_4::*,
     shared::dxgi::*,
     shared::dxgiformat::*,
@@ -122,12 +123,12 @@ impl Renderer {
     pub fn create(config: &config::Config,
                   h_wnd:  HWND) -> Result<Renderer, WindowsError> {
         if config.enable_debug {
-            init_debug_objects()?;
+            create_debug_objects()?;
         }
 
-        let dxgi_factory = init_dxgi_factory()?;
+        let dxgi_factory = create_dxgi_factory()?;
 
-        let warp_adapter = init_warp_adapter(&dxgi_factory)?;
+        let warp_adapter = create_warp_adapter(&dxgi_factory)?;
         let adapters = enum_adapters(&dxgi_factory)?;
 
         let adapter: ComPtr<IDXGIAdapter>;
@@ -136,7 +137,7 @@ impl Renderer {
         } else {
             adapter = adapters[0].clone().cast()?;
         }
-        let device = init_device(&adapter, config.feature_level)?;
+        let device = create_device(&adapter, config.feature_level)?;
 
         let _fence = create_fence(&device, D3D12_FENCE_FLAG_NONE)?;
 
@@ -147,43 +148,56 @@ impl Renderer {
         // This is arbitrary right now.
         let backbuffer_format = DXGI_FORMAT_R8G8B8A8_UNORM;
 
-        let mut ms_quality = D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS {
+        let mut msaa_4x_quality = D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS {
             Format:             backbuffer_format,
             SampleCount:        4,
             Flags:              D3D12_MULTISAMPLE_QUALITY_LEVELS_FLAG_NONE,
             NumQualityLevels:   0,
         };
-        check_feature_multisample_quality(&device, &mut ms_quality)?;
-        println!("MS Quality: {}", ms_quality.NumQualityLevels);
+        check_feature_multisample_quality(&device, &mut msaa_4x_quality)?;
+        let msaa_4x_quality_lvls = msaa_4x_quality.NumQualityLevels;
+        println!("4x MSAA Quality Levels: {}",  msaa_4x_quality_lvls);
+        let cmd_queue = create_cmd_queue(&device)?;
+        let cmd_alloc = create_cmd_alloc(&device)?;
+        let _gfx_cmd_list = create_gfx_cmd_list(&device, &cmd_alloc)?;
 
-        let cmd_queue = init_cmd_queue(&device)?;
-        let cmd_alloc = init_cmd_alloc(&device)?;
-        let _gfx_cmd_list = init_gfx_cmd_list(&device, &cmd_alloc)?;
-
-        let swapchain_desc = DXGI_SWAP_CHAIN_DESC {
-            BufferDesc: DXGI_MODE_DESC {
-                Width:  1024,
-                Height: 1024,
-                RefreshRate: DXGI_RATIONAL { Numerator: 60, Denominator: 1},
-                Format: backbuffer_format,
-                ScanlineOrdering: DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED,
-                Scaling: DXGI_MODE_SCALING_UNSPECIFIED,
-            },
+        let swapchain_desc = DXGI_SWAP_CHAIN_DESC1 {
+            Width:  1024,
+            Height: 1024,
+            Format: backbuffer_format,
+            Stereo: 0,
             SampleDesc: DXGI_SAMPLE_DESC {
-                Count: ms_quality.NumQualityLevels,
-                Quality: ms_quality.NumQualityLevels-1,
+                Count:   4,
+                Quality: msaa_4x_quality_lvls - 1,
             },
             BufferUsage: DXGI_USAGE_RENDER_TARGET_OUTPUT,
             BufferCount: FRAME_COUNT as u32,
-            OutputWindow: h_wnd,
-            Windowed: 1,
-            SwapEffect: DXGI_SWAP_EFFECT_FLIP_DISCARD,
-            Flags: DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH,
+            Scaling:     DXGI_SCALING_ASPECT_RATIO_STRETCH,
+            SwapEffect:  DXGI_SWAP_EFFECT_FLIP_DISCARD,
+            AlphaMode:   DXGI_ALPHA_MODE_IGNORE,
+            Flags:       DXGI_SWAP_CHAIN_FLAG_DISPLAY_ONLY,
         };
         println!("{:#?}\n", swapchain_desc);
-        let _swapchain = init_swapchain(&dxgi_factory,
-                                       &cmd_queue,
-                                       swapchain_desc)?;
+        let _swapchain = create_swapchain(&dxgi_factory,
+                                         &cmd_queue,
+                                         h_wnd,
+                                         swapchain_desc)?;
+
+        let _rtv_descriptor_heap = create_descriptor_heap(&device,
+            D3D12_DESCRIPTOR_HEAP_DESC {
+                NumDescriptors: FRAME_COUNT as u32,
+                Type:           D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
+                Flags:          D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
+                NodeMask:       0
+        })?;
+
+        let _dsv_descriptor_heap = create_descriptor_heap(&device,
+            D3D12_DESCRIPTOR_HEAP_DESC {
+                NumDescriptors: FRAME_COUNT as u32,
+                Type:           D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
+                Flags:          D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
+                NodeMask:       0
+        })?;
 
         Err(WindowsError::NotImplemented)
     }
@@ -304,7 +318,7 @@ fn check_feature_multisample_quality(
 // Initialization is a lot, so we break it apart into named functions.
 // You may notice some repetitive code: still working on how to make this pretty.
 
-fn init_debug_objects() -> WindowsResult<()> {
+fn create_debug_objects() -> WindowsResult<()> {
     let d3d12_debug: ComPtr<ID3D12Debug> = unsafe {
         let mut ptr: *mut _ = ptr::null_mut();
         hr!(D3D12GetDebugInterface(&ID3D12Debug::uuidof(),
@@ -334,7 +348,7 @@ fn init_debug_objects() -> WindowsResult<()> {
     Ok(())
 }
 
-fn init_dxgi_factory() -> WindowsResult<ComPtr<IDXGIFactory4>> {
+fn create_dxgi_factory() -> WindowsResult<ComPtr<IDXGIFactory4>> {
     unsafe {
         let mut ptr: *mut _ = ptr::null_mut();
         hr!(CreateDXGIFactory(&IDXGIFactory4::uuidof(),
@@ -343,7 +357,7 @@ fn init_dxgi_factory() -> WindowsResult<ComPtr<IDXGIFactory4>> {
     }
 }
 
-fn init_warp_adapter(dxgi_factory: &ComPtr<IDXGIFactory4>) -> WindowsResult<ComPtr<IDXGIAdapter>> {
+fn create_warp_adapter(dxgi_factory: &ComPtr<IDXGIFactory4>) -> WindowsResult<ComPtr<IDXGIAdapter>> {
     unsafe {
         let mut ptr: *mut _ = ptr::null_mut();
         hr!(dxgi_factory.EnumWarpAdapter(&IDXGIAdapter::uuidof(),
@@ -352,7 +366,7 @@ fn init_warp_adapter(dxgi_factory: &ComPtr<IDXGIFactory4>) -> WindowsResult<ComP
     }
 }
 
-fn init_device(adapter: &ComPtr<IDXGIAdapter>,
+fn create_device(adapter: &ComPtr<IDXGIAdapter>,
                feature_level: ::config::Dx12FeatureLevel)
     -> WindowsResult<ComPtr<ID3D12Device>>
 {
@@ -366,7 +380,7 @@ fn init_device(adapter: &ComPtr<IDXGIAdapter>,
     }
 }
 
-fn init_cmd_queue(device: &ComPtr<ID3D12Device>)
+fn create_cmd_queue(device: &ComPtr<ID3D12Device>)
      -> WindowsResult<ComPtr<ID3D12CommandQueue>>
 {
     unsafe {
@@ -384,7 +398,7 @@ fn init_cmd_queue(device: &ComPtr<ID3D12Device>)
     }
 }
 
-fn init_cmd_alloc(device: &ComPtr<ID3D12Device>)
+fn create_cmd_alloc(device: &ComPtr<ID3D12Device>)
     -> WindowsResult<ComPtr<ID3D12CommandAllocator>>
 {
     unsafe {
@@ -396,7 +410,7 @@ fn init_cmd_alloc(device: &ComPtr<ID3D12Device>)
     }
 }
 
-fn init_gfx_cmd_list(device:    &ComPtr<ID3D12Device>,
+fn create_gfx_cmd_list(device:    &ComPtr<ID3D12Device>,
                      cmd_alloc: &ComPtr<ID3D12CommandAllocator>)
     -> WindowsResult<ComPtr<ID3D12CommandAllocator>>
 {
@@ -412,16 +426,34 @@ fn init_gfx_cmd_list(device:    &ComPtr<ID3D12Device>,
     }
 }
 
-fn init_swapchain(dxgi_factory: &ComPtr<IDXGIFactory4>,
-                  cmd_queue:    &ComPtr<ID3D12CommandQueue>,
-                  mut desc:      DXGI_SWAP_CHAIN_DESC)
-    -> WindowsResult<ComPtr<IDXGISwapChain>>
+fn create_swapchain(dxgi_factory: &ComPtr<IDXGIFactory4>,
+                    cmd_queue:    &ComPtr<ID3D12CommandQueue>,
+                    h_wnd:        HWND,
+                    desc:         DXGI_SWAP_CHAIN_DESC1)
+    -> WindowsResult<ComPtr<IDXGISwapChain1>>
 {
     unsafe {
         let mut ptr: *mut _ = ptr::null_mut();
-        hr!(dxgi_factory.CreateSwapChain(cmd_queue.as_raw() as *mut _,
-                                         &mut desc,
-                                         &mut ptr))?;
+        hr!(dxgi_factory.CreateSwapChainForHwnd(
+            cmd_queue.as_raw() as *mut _,
+            h_wnd,
+            &desc,
+            ptr::null(),     // pFullscreenDesc
+            ptr::null_mut(), // pRestrictToOutput
+            &mut ptr))?;
+        Ok(ComPtr::from_raw(ptr))
+    }
+}
+
+fn create_descriptor_heap(device: &ComPtr<ID3D12Device>,
+                        desc:   D3D12_DESCRIPTOR_HEAP_DESC)
+    -> WindowsResult<ComPtr<ID3D12DescriptorHeap>>
+{
+    unsafe {
+        let mut ptr: *mut _ = ptr::null_mut();
+        hr!(device.CreateDescriptorHeap(&desc,
+                                        &ID3D12DescriptorHeap::uuidof(),
+                                        &mut ptr as *mut _ as *mut _))?;
         Ok(ComPtr::from_raw(ptr))
     }
 }

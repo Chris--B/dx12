@@ -1,29 +1,12 @@
 
 use winapi::{
-    shared::winerror::HRESULT,
-    shared::minwindef::HINSTANCE,
-    shared::windef::HBRUSH,
-    shared::windef::HWND,
-
-    um::errhandlingapi::GetLastError,
-    um::libloaderapi::GetModuleHandleA,
-    um::wingdi::GetStockObject,
-    um::wingdi::WHITE_BRUSH,
-    um::winuser::{
-        CreateWindowExA,
-        LoadCursorW,
-        LoadIconW,
-        RegisterClassA,
-        ShowWindow,
-        UpdateWindow,
-        CS_HREDRAW,
-        CS_VREDRAW,
-        CW_USEDEFAULT,
-        IDC_ARROW,
-        IDI_APPLICATION,
-        WNDCLASSA,
-        WS_OVERLAPPEDWINDOW,
-    },
+    shared::minwindef::*,
+    shared::windef::*,
+    shared::winerror::*,
+    um::errhandlingapi::*,
+    um::libloaderapi::*,
+    um::wingdi::*,
+    um::winuser::*,
 };
 
 use std::{
@@ -97,7 +80,7 @@ pub fn init_window(window_title: &str) -> Result<HWND, HRESULT> {
                                     h_instance,
                                     ptr::null_mut()      /*Extra params*/);
 
-        ShowWindow(h_wnd, 1);
+        ShowWindow(h_wnd, SW_SHOW);
         UpdateWindow(h_wnd);
 
         Ok(h_wnd)
