@@ -145,7 +145,7 @@ impl Renderer {
         };
 
         // This is arbitrary right now.
-        let backbuffer_format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+        let backbuffer_format = DXGI_FORMAT_R8G8B8A8_UNORM;
 
         let mut ms_quality = D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS {
             Format:             backbuffer_format,
